@@ -1,53 +1,23 @@
 const { ipcMain } = require("electron");
-
-const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
-
-function getBackendUrl() {
-  return process.env.BACKEND_URL || DEFAULT_BACKEND_URL;
-}
-
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    let detail = "Request failed.";
-    try {
-      const payload = await response.json();
-      detail = payload?.detail || detail;
-    } catch (_error) {
-      detail = `Request failed with HTTP ${response.status}.`;
-    }
-    return { ok: false, error: detail };
-  }
-  const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("text/csv")) {
-    return { ok: true, data: await response.text() };
-  }
-  return { ok: true, data: await response.json() };
-}
+const { getBackendUrl, requestJson } = require("./backendClient");
 
 function registerTimeclockIpc() {
-  ipcMain.handle("timeclock:list-employees", async (_event, tenantId) => {
-    const tenant_id = String(tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
+  ipcMain.handle("timeclock:list-employees", async () => {
     try {
-      const url = new URL("/timeclock/employees", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
-      return await requestJson(url.toString());
+      const url = new URL("/timeclock/employees", getBackendUrl()).toString();
+      return await requestJson(url);
     } catch (_error) {
       return { ok: false, error: "Could not reach timeclock employees endpoint." };
     }
   });
 
   ipcMain.handle("timeclock:create-employee", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/employees", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id,
           full_name: payload?.fullName,
           email: payload?.email,
           role: payload?.role || "staff",
@@ -60,15 +30,12 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:create-event", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/events", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id,
           employee_id: payload?.employeeId,
           event_type: payload?.eventType,
           occurred_at: payload?.occurredAt,
@@ -82,28 +49,22 @@ function registerTimeclockIpc() {
     }
   });
 
-  ipcMain.handle("timeclock:live-board", async (_event, tenantId) => {
-    const tenant_id = String(tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
+  ipcMain.handle("timeclock:live-board", async () => {
     try {
-      const url = new URL("/timeclock/live", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
-      return await requestJson(url.toString());
+      const url = new URL("/timeclock/live", getBackendUrl()).toString();
+      return await requestJson(url);
     } catch (_error) {
       return { ok: false, error: "Could not reach live board endpoint." };
     }
   });
 
   ipcMain.handle("timeclock:create-shift", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/shifts", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id,
           employee_id: payload?.employeeId,
           start_at: payload?.startAt,
           end_at: payload?.endAt,
@@ -117,11 +78,8 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:list-shifts", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/shifts", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
       url.searchParams.set("date_from", payload?.dateFrom);
       url.searchParams.set("date_to", payload?.dateTo);
       return await requestJson(url.toString());
@@ -131,11 +89,8 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:list-exceptions", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/exceptions", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
       url.searchParams.set("day", payload?.day);
       return await requestJson(url.toString());
     } catch (_error) {
@@ -144,11 +99,8 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:timesheet-summary", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/timesheet-summary", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
       url.searchParams.set("period_start", payload?.periodStart);
       url.searchParams.set("period_end", payload?.periodEnd);
       return await requestJson(url.toString());
@@ -158,15 +110,12 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:approve-timesheet", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/timesheet-approval", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id,
           employee_id: payload?.employeeId,
           period_start: payload?.periodStart,
           period_end: payload?.periodEnd,
@@ -179,28 +128,22 @@ function registerTimeclockIpc() {
     }
   });
 
-  ipcMain.handle("timeclock:get-policy", async (_event, tenantId) => {
-    const tenant_id = String(tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
+  ipcMain.handle("timeclock:get-policy", async () => {
     try {
-      const url = new URL("/timeclock/policy", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
-      return await requestJson(url.toString());
+      const url = new URL("/timeclock/policy", getBackendUrl()).toString();
+      return await requestJson(url);
     } catch (_error) {
       return { ok: false, error: "Could not reach policy endpoint." };
     }
   });
 
   ipcMain.handle("timeclock:update-policy", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/policy", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenant_id,
           overtime_daily_hours: payload?.overtimeDailyHours,
           overtime_weekly_hours: payload?.overtimeWeeklyHours,
           max_break_minutes: payload?.maxBreakMinutes,
@@ -214,30 +157,22 @@ function registerTimeclockIpc() {
     }
   });
 
-  ipcMain.handle("timeclock:list-alerts", async (_event, tenantId) => {
-    const tenant_id = String(tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
+  ipcMain.handle("timeclock:list-alerts", async () => {
     try {
-      const url = new URL("/timeclock/alerts", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
-      return await requestJson(url.toString());
+      const url = new URL("/timeclock/alerts", getBackendUrl()).toString();
+      return await requestJson(url);
     } catch (_error) {
       return { ok: false, error: "Could not reach alerts endpoint." };
     }
   });
 
   ipcMain.handle("timeclock:resolve-alert", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/alerts/resolve", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenant_id,
-          alert_id: payload?.alertId,
-        }),
+        body: JSON.stringify({ alert_id: payload?.alertId }),
       });
     } catch (_error) {
       return { ok: false, error: "Could not reach alert resolve endpoint." };
@@ -245,17 +180,12 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:sync-alerts", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/alerts/sync", getBackendUrl()).toString();
       return await requestJson(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenant_id,
-          day: payload?.day,
-        }),
+        body: JSON.stringify({ day: payload?.day }),
       });
     } catch (_error) {
       return { ok: false, error: "Could not reach alert sync endpoint." };
@@ -263,11 +193,8 @@ function registerTimeclockIpc() {
   });
 
   ipcMain.handle("timeclock:export-csv", async (_event, payload) => {
-    const tenant_id = String(payload?.tenantId || "").trim();
-    if (!tenant_id) return { ok: false, error: "tenantId is required." };
     try {
       const url = new URL("/timeclock/export.csv", getBackendUrl());
-      url.searchParams.set("tenant_id", tenant_id);
       url.searchParams.set("period_start", payload?.periodStart);
       url.searchParams.set("period_end", payload?.periodEnd);
       return await requestJson(url.toString());

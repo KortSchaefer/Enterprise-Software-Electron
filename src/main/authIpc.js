@@ -1,31 +1,20 @@
 const { ipcMain } = require("electron");
-
-const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
+const { getBackendUrl, requestJson } = require("./backendClient");
+const { clearAuthState, readAuthState, writeAuthState } = require("./authStore");
 
 async function loginWithBackend(payload) {
-  const backendUrl = process.env.BACKEND_URL || DEFAULT_BACKEND_URL;
-  const loginUrl = new URL("/auth/login", backendUrl).toString();
-  const response = await fetch(loginUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const loginUrl = new URL("/auth/login", getBackendUrl()).toString();
+  return requestJson(
+    loginUrl,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    let detail = "Login failed.";
-    try {
-      const errorPayload = await response.json();
-      detail = errorPayload?.detail || detail;
-    } catch (_error) {
-      detail = `Login failed with HTTP ${response.status}.`;
-    }
-    return { ok: false, error: detail };
-  }
-
-  const data = await response.json();
-  return { ok: true, data };
+    false
+  );
 }
 
 function registerAuthIpc() {
@@ -39,17 +28,37 @@ function registerAuthIpc() {
     }
 
     try {
-      return await loginWithBackend({
-        tenant_id: tenantId,
-        email,
-        password,
-      });
-    } catch (_error) {
-      return {
-        ok: false,
-        error: "Could not reach authentication service at http://127.0.0.1:8000.",
+      const result = await loginWithBackend({ tenant_id: tenantId, email, password });
+      if (!result.ok) {
+        return result;
+      }
+      const nextAuthState = {
+        accessToken: result.data.access_token,
+        tenantId: result.data.tenant_id,
+        userId: result.data.user_id,
+        email: result.data.email,
+        role: result.data.role,
+        expiresAt: result.data.expires_at,
       };
+      await writeAuthState(nextAuthState);
+      return { ok: true, data: nextAuthState };
+    } catch (_error) {
+      return { ok: false, error: "Could not reach authentication service at http://127.0.0.1:8000." };
     }
+  });
+
+  ipcMain.handle("auth:get-session", async () => {
+    return readAuthState();
+  });
+
+  ipcMain.handle("auth:logout", async () => {
+    try {
+      const logoutUrl = new URL("/auth/logout", getBackendUrl()).toString();
+      await requestJson(logoutUrl, { method: "POST" });
+    } catch (_error) {
+    }
+    await clearAuthState();
+    return { ok: true };
   });
 }
 

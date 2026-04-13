@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function LoginPage({ appName, tenantId, businessName }) {
+export default function LoginPage({ appName, tenantId, businessName, onLoggedIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -23,13 +23,8 @@ export default function LoginPage({ appName, tenantId, businessName }) {
         return;
       }
 
-      setMessage("Login successful. Opening dashboard...");
-      await window.electronAPI.window.openDashboard({
-        tenantId,
-        businessName,
-        userEmail: result.data.email,
-        userId: result.data.user_id,
-      });
+      setMessage("Login successful.");
+      onLoggedIn?.(result.data);
     } catch (_error) {
       setMessage("Login failed. Check backend connectivity.");
     } finally {

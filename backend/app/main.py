@@ -3,10 +3,11 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from app.auth import SessionContext, create_session, get_session_context, require_manager, revoke_session
 from app.chat import router as chat_router
 from app.database import first_row, get_supabase, require_row, rows
 from app.security import hash_password, verify_password
@@ -58,15 +59,16 @@ class ActivationResponse(BaseModel):
 
 
 class CreateUserRequest(BaseModel):
-    tenant_id: str = Field(min_length=1, max_length=64)
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=8, max_length=255)
+    role: str = Field(default="staff", max_length=64)
 
 
 class UserResponse(BaseModel):
     id: int
     tenant_id: str
     email: str
+    role: str
 
 
 class LoginRequest(BaseModel):
@@ -79,6 +81,9 @@ class LoginResponse(BaseModel):
     user_id: int
     tenant_id: str
     email: str
+    role: str
+    access_token: str
+    expires_at: str
 
 
 class AppCatalogEntry(BaseModel):
@@ -88,7 +93,6 @@ class AppCatalogEntry(BaseModel):
 
 
 class TenantAppInstallRequest(BaseModel):
-    tenant_id: str = Field(min_length=1, max_length=64)
     app_key: str = Field(min_length=1, max_length=64)
 
 
@@ -98,7 +102,6 @@ class TenantAppResponse(BaseModel):
 
 
 class InventoryItemCreateRequest(BaseModel):
-    tenant_id: str = Field(min_length=1, max_length=64)
     sku: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=255)
     description: str = Field(default="", max_length=1000)
@@ -117,7 +120,6 @@ class InventoryItemResponse(BaseModel):
 
 
 class InventoryAdjustRequest(BaseModel):
-    tenant_id: str = Field(min_length=1, max_length=64)
     item_id: int
     change_amount: int
     reason: str = Field(min_length=1, max_length=255)
@@ -139,10 +141,7 @@ def validate_activation(payload: ActivationRequest) -> ActivationResponse:
     tenant_key = payload.tenant_key.strip().lower()
 
     if not HEX_256_PATTERN.match(tenant_key):
-        raise HTTPException(
-            status_code=400,
-            detail="Tenant key must be a valid 64-character hex string.",
-        )
+        raise HTTPException(status_code=400, detail="Tenant key must be a valid 64-character hex string.")
 
     tenant_segment = tenant_key[:12]
     tenant_id = f"tenant-{tenant_segment}"
@@ -155,13 +154,16 @@ def validate_activation(payload: ActivationRequest) -> ActivationResponse:
 
 
 @app.post("/users", response_model=UserResponse)
-def create_user(payload: CreateUserRequest) -> UserResponse:
+def create_user(
+    payload: CreateUserRequest,
+    context: SessionContext = Depends(get_session_context),
+) -> UserResponse:
+    require_manager(context)
     supabase = get_supabase()
-    tenant_id = payload.tenant_id.strip()
     email = payload.email.strip().lower()
 
     existing = first_row(
-        supabase.table("users").select("id").eq("tenant_id", tenant_id).eq("email", email).limit(1).execute()
+        supabase.table("users").select("id").eq("tenant_id", context.tenant_id).eq("email", email).limit(1).execute()
     )
     if existing:
         raise HTTPException(status_code=409, detail="User email already exists.")
@@ -170,7 +172,7 @@ def create_user(payload: CreateUserRequest) -> UserResponse:
         supabase.table("users")
         .insert(
             {
-                "tenant_id": tenant_id,
+                "tenant_id": context.tenant_id,
                 "email": email,
                 "password_hash": hash_password(payload.password),
             }
@@ -178,17 +180,39 @@ def create_user(payload: CreateUserRequest) -> UserResponse:
         .execute()
     )
     row = require_row(row, 500, "User creation failed.")
-    return UserResponse(id=row["id"], tenant_id=row["tenant_id"], email=row["email"])
+    supabase.table("tenant_memberships").insert(
+        {
+            "tenant_id": context.tenant_id,
+            "user_id": row["id"],
+            "role": payload.role.strip().lower(),
+            "is_active": 1,
+        }
+    ).execute()
+    return UserResponse(id=row["id"], tenant_id=row["tenant_id"], email=row["email"], role=payload.role.strip().lower())
 
 
 @app.get("/users", response_model=list[UserResponse])
-def list_users(tenant_id: str | None = None) -> list[UserResponse]:
+def list_users(context: SessionContext = Depends(get_session_context)) -> list[UserResponse]:
     supabase = get_supabase()
-    query = supabase.table("users").select("id, tenant_id, email").order("id", desc=True)
-    if tenant_id:
-        query = query.eq("tenant_id", tenant_id.strip())
-
-    return [UserResponse(**row) for row in rows(query.execute())]
+    users = rows(
+        supabase.table("users")
+        .select("id, tenant_id, email")
+        .eq("tenant_id", context.tenant_id)
+        .order("id", desc=True)
+        .execute()
+    )
+    memberships = rows(
+        supabase.table("tenant_memberships")
+        .select("user_id, role")
+        .eq("tenant_id", context.tenant_id)
+        .eq("is_active", 1)
+        .execute()
+    )
+    roles_by_user_id = {row["user_id"]: row["role"] for row in memberships}
+    return [
+        UserResponse(id=user["id"], tenant_id=user["tenant_id"], email=user["email"], role=roles_by_user_id.get(user["id"], "staff"))
+        for user in users
+    ]
 
 
 @app.post("/auth/login", response_model=LoginResponse)
@@ -204,18 +228,51 @@ def login(payload: LoginRequest) -> LoginResponse:
         .limit(1)
         .execute()
     )
-
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials.")
+
+    membership = first_row(
+        supabase.table("tenant_memberships")
+        .select("tenant_id, role, is_active")
+        .eq("user_id", user["id"])
+        .eq("tenant_id", tenant_id)
+        .limit(1)
+        .execute()
+    )
+    if not membership or membership["is_active"] != 1:
+        raise HTTPException(status_code=403, detail="User is not active for this tenant.")
 
     valid_password = verify_password(payload.password, user["password_hash"])
     if not valid_password and user["password_hash"].startswith("plain:"):
         valid_password = user["password_hash"] == f"plain:{payload.password}"
-
     if not valid_password:
         raise HTTPException(status_code=401, detail="Invalid credentials.")
 
-    return LoginResponse(user_id=user["id"], tenant_id=user["tenant_id"], email=user["email"])
+    session = create_session(user, membership)
+    return LoginResponse(
+        user_id=user["id"],
+        tenant_id=user["tenant_id"],
+        email=user["email"],
+        role=membership["role"],
+        access_token=session["access_token"],
+        expires_at=session["expires_at"],
+    )
+
+
+@app.post("/auth/logout")
+def logout(context: SessionContext = Depends(get_session_context)) -> dict[str, str]:
+    revoke_session(context)
+    return {"status": "ok"}
+
+
+@app.get("/auth/session")
+def get_session(context: SessionContext = Depends(get_session_context)) -> dict[str, str | int]:
+    return {
+        "user_id": context.user_id,
+        "tenant_id": context.tenant_id,
+        "email": context.email,
+        "role": context.role,
+    }
 
 
 @app.get("/apps/catalog", response_model=list[AppCatalogEntry])
@@ -224,12 +281,11 @@ def list_app_catalog() -> list[AppCatalogEntry]:
 
 
 @app.get("/apps/installed", response_model=list[TenantAppResponse])
-def list_installed_apps(tenant_id: str) -> list[TenantAppResponse]:
-    supabase = get_supabase()
+def list_installed_apps(context: SessionContext = Depends(get_session_context)) -> list[TenantAppResponse]:
     result = rows(
-        supabase.table("tenant_apps")
+        get_supabase().table("tenant_apps")
         .select("app_key, installed_at")
-        .eq("tenant_id", tenant_id.strip())
+        .eq("tenant_id", context.tenant_id)
         .order("id")
         .execute()
     )
@@ -237,8 +293,11 @@ def list_installed_apps(tenant_id: str) -> list[TenantAppResponse]:
 
 
 @app.post("/apps/install", response_model=TenantAppResponse)
-def install_app(payload: TenantAppInstallRequest) -> TenantAppResponse:
-    tenant_id = payload.tenant_id.strip()
+def install_app(
+    payload: TenantAppInstallRequest,
+    context: SessionContext = Depends(get_session_context),
+) -> TenantAppResponse:
+    require_manager(context)
     app_key = payload.app_key.strip().lower()
     catalog_keys = {entry["key"] for entry in APP_CATALOG}
     if app_key not in catalog_keys:
@@ -248,7 +307,7 @@ def install_app(payload: TenantAppInstallRequest) -> TenantAppResponse:
     existing = first_row(
         supabase.table("tenant_apps")
         .select("app_key, installed_at")
-        .eq("tenant_id", tenant_id)
+        .eq("tenant_id", context.tenant_id)
         .eq("app_key", app_key)
         .limit(1)
         .execute()
@@ -258,7 +317,7 @@ def install_app(payload: TenantAppInstallRequest) -> TenantAppResponse:
 
     row = first_row(
         supabase.table("tenant_apps")
-        .insert({"tenant_id": tenant_id, "app_key": app_key})
+        .insert({"tenant_id": context.tenant_id, "app_key": app_key})
         .execute()
     )
     row = require_row(row, 500, "App installation failed.")
@@ -266,12 +325,11 @@ def install_app(payload: TenantAppInstallRequest) -> TenantAppResponse:
 
 
 @app.get("/inventory/items", response_model=list[InventoryItemResponse])
-def list_inventory_items(tenant_id: str, low_stock_only: bool = False) -> list[InventoryItemResponse]:
-    supabase = get_supabase()
+def list_inventory_items(low_stock_only: bool = False, context: SessionContext = Depends(get_session_context)) -> list[InventoryItemResponse]:
     query = (
-        supabase.table("inventory_items")
+        get_supabase().table("inventory_items")
         .select("id, tenant_id, sku, name, description, quantity_on_hand, reorder_point")
-        .eq("tenant_id", tenant_id.strip())
+        .eq("tenant_id", context.tenant_id)
         .order("name")
     )
     rows_out = rows(query.execute())
@@ -281,15 +339,18 @@ def list_inventory_items(tenant_id: str, low_stock_only: bool = False) -> list[I
 
 
 @app.post("/inventory/items", response_model=InventoryItemResponse)
-def create_inventory_item(payload: InventoryItemCreateRequest) -> InventoryItemResponse:
-    supabase = get_supabase()
-    tenant_id = payload.tenant_id.strip()
+def create_inventory_item(
+    payload: InventoryItemCreateRequest,
+    context: SessionContext = Depends(get_session_context),
+) -> InventoryItemResponse:
+    require_manager(context)
     sku = payload.sku.strip().upper()
+    supabase = get_supabase()
 
     existing = first_row(
         supabase.table("inventory_items")
         .select("id")
-        .eq("tenant_id", tenant_id)
+        .eq("tenant_id", context.tenant_id)
         .eq("sku", sku)
         .limit(1)
         .execute()
@@ -301,7 +362,7 @@ def create_inventory_item(payload: InventoryItemCreateRequest) -> InventoryItemR
         supabase.table("inventory_items")
         .insert(
             {
-                "tenant_id": tenant_id,
+                "tenant_id": context.tenant_id,
                 "sku": sku,
                 "name": payload.name.strip(),
                 "description": payload.description.strip(),
@@ -317,44 +378,25 @@ def create_inventory_item(payload: InventoryItemCreateRequest) -> InventoryItemR
 
 
 @app.post("/inventory/adjust", response_model=InventoryItemResponse)
-def adjust_inventory(payload: InventoryAdjustRequest) -> InventoryItemResponse:
+def adjust_inventory(
+    payload: InventoryAdjustRequest,
+    context: SessionContext = Depends(get_session_context),
+) -> InventoryItemResponse:
+    require_manager(context)
     if payload.change_amount == 0:
         raise HTTPException(status_code=400, detail="change_amount cannot be zero.")
 
-    supabase = get_supabase()
-    tenant_id = payload.tenant_id.strip()
-    row = first_row(
-        supabase.table("inventory_items")
-        .select("id, tenant_id, sku, name, description, quantity_on_hand, reorder_point")
-        .eq("id", payload.item_id)
-        .eq("tenant_id", tenant_id)
-        .limit(1)
-        .execute()
+    result = first_row(
+        get_supabase().rpc(
+            "adjust_inventory_item",
+            {
+                "p_tenant_id": context.tenant_id,
+                "p_item_id": payload.item_id,
+                "p_change_amount": payload.change_amount,
+                "p_reason": payload.reason.strip(),
+                "p_performed_by": payload.performed_by.strip() or context.email,
+            },
+        )
     )
-    if not row:
-        raise HTTPException(status_code=404, detail="Inventory item not found.")
-
-    next_qty = row["quantity_on_hand"] + payload.change_amount
-    if next_qty < 0:
-        raise HTTPException(status_code=400, detail="Adjustment would result in negative stock.")
-
-    updated = first_row(
-        supabase.table("inventory_items")
-        .update({"quantity_on_hand": next_qty, "updated_at": utc_now_iso()})
-        .eq("id", row["id"])
-        .eq("tenant_id", tenant_id)
-        .execute()
-    )
-    require_row(updated, 500, "Inventory update failed.")
-
-    supabase.table("inventory_movements").insert(
-        {
-            "item_id": row["id"],
-            "tenant_id": tenant_id,
-            "change_amount": payload.change_amount,
-            "reason": payload.reason.strip(),
-            "performed_by": payload.performed_by.strip(),
-        }
-    ).execute()
-
-    return InventoryItemResponse(**updated)
+    result = require_row(result, 500, "Inventory update failed.")
+    return InventoryItemResponse(**result)
