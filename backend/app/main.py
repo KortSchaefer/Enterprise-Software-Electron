@@ -1,22 +1,19 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-import re
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from __future__ import annotations
 
-from app.database import SessionLocal, engine, Base
-from app.models import InventoryItem, InventoryMovement, TenantApp, User, Message
+import re
+from datetime import datetime, timezone
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+from app.chat import router as chat_router
+from app.database import first_row, get_supabase, require_row, rows
 from app.security import hash_password, verify_password
 from app.timeclock import router as timeclock_router
-from app.chat import router as chat_router
-
-from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Enterprise Software Backend")
-origins = [
-    
-    "http://localhost:5173",
-]
+origins = ["http://localhost:5173"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,6 +41,10 @@ APP_CATALOG = [
         "description": "One-to-one messaging between users.",
     },
 ]
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class ActivationRequest(BaseModel):
@@ -123,17 +124,13 @@ class InventoryAdjustRequest(BaseModel):
     performed_by: str = Field(default="", max_length=255)
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    Base.metadata.create_all(bind=engine)
-
-
 app.include_router(timeclock_router)
 app.include_router(chat_router)
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    get_supabase()
     return {"status": "ok"}
 
 
@@ -147,7 +144,6 @@ def validate_activation(payload: ActivationRequest) -> ActivationResponse:
             detail="Tenant key must be a valid 64-character hex string.",
         )
 
-    # Placeholder tenancy mapping. Replace with DB lookup when tenant registry is ready.
     tenant_segment = tenant_key[:12]
     tenant_id = f"tenant-{tenant_segment}"
 
@@ -160,61 +156,66 @@ def validate_activation(payload: ActivationRequest) -> ActivationResponse:
 
 @app.post("/users", response_model=UserResponse)
 def create_user(payload: CreateUserRequest) -> UserResponse:
-    session = SessionLocal()
-    try:
-        user = User(
-            tenant_id=payload.tenant_id.strip(),
-            email=payload.email.strip().lower(),
-            password_hash=hash_password(payload.password),
-        )
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-        return UserResponse(id=user.id, tenant_id=user.tenant_id, email=user.email)
-    except IntegrityError:
-        session.rollback()
+    supabase = get_supabase()
+    tenant_id = payload.tenant_id.strip()
+    email = payload.email.strip().lower()
+
+    existing = first_row(
+        supabase.table("users").select("id").eq("tenant_id", tenant_id).eq("email", email).limit(1).execute()
+    )
+    if existing:
         raise HTTPException(status_code=409, detail="User email already exists.")
-    finally:
-        session.close()
+
+    row = first_row(
+        supabase.table("users")
+        .insert(
+            {
+                "tenant_id": tenant_id,
+                "email": email,
+                "password_hash": hash_password(payload.password),
+            }
+        )
+        .execute()
+    )
+    row = require_row(row, 500, "User creation failed.")
+    return UserResponse(id=row["id"], tenant_id=row["tenant_id"], email=row["email"])
 
 
 @app.get("/users", response_model=list[UserResponse])
 def list_users(tenant_id: str | None = None) -> list[UserResponse]:
-    session = SessionLocal()
-    try:
-        query = select(User)
-        if tenant_id:
-            query = query.where(User.tenant_id == tenant_id.strip())
+    supabase = get_supabase()
+    query = supabase.table("users").select("id, tenant_id, email").order("id", desc=True)
+    if tenant_id:
+        query = query.eq("tenant_id", tenant_id.strip())
 
-        users = session.execute(query.order_by(User.id.desc())).scalars().all()
-        return [UserResponse(id=user.id, tenant_id=user.tenant_id, email=user.email) for user in users]
-    finally:
-        session.close()
+    return [UserResponse(**row) for row in rows(query.execute())]
 
 
 @app.post("/auth/login", response_model=LoginResponse)
 def login(payload: LoginRequest) -> LoginResponse:
-    session = SessionLocal()
-    try:
-        email = payload.email.strip().lower()
-        tenant_id = payload.tenant_id.strip()
-        user = session.execute(
-            select(User).where(User.email == email, User.tenant_id == tenant_id)
-        ).scalar_one_or_none()
+    supabase = get_supabase()
+    email = payload.email.strip().lower()
+    tenant_id = payload.tenant_id.strip()
+    user = first_row(
+        supabase.table("users")
+        .select("id, tenant_id, email, password_hash")
+        .eq("email", email)
+        .eq("tenant_id", tenant_id)
+        .limit(1)
+        .execute()
+    )
 
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials.")
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
 
-        valid_password = verify_password(payload.password, user.password_hash)
-        if not valid_password and user.password_hash.startswith("plain:"):
-            valid_password = user.password_hash == f"plain:{payload.password}"
+    valid_password = verify_password(payload.password, user["password_hash"])
+    if not valid_password and user["password_hash"].startswith("plain:"):
+        valid_password = user["password_hash"] == f"plain:{payload.password}"
 
-        if not valid_password:
-            raise HTTPException(status_code=401, detail="Invalid credentials.")
+    if not valid_password:
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
 
-        return LoginResponse(user_id=user.id, tenant_id=user.tenant_id, email=user.email)
-    finally:
-        session.close()
+    return LoginResponse(user_id=user["id"], tenant_id=user["tenant_id"], email=user["email"])
 
 
 @app.get("/apps/catalog", response_model=list[AppCatalogEntry])
@@ -224,14 +225,15 @@ def list_app_catalog() -> list[AppCatalogEntry]:
 
 @app.get("/apps/installed", response_model=list[TenantAppResponse])
 def list_installed_apps(tenant_id: str) -> list[TenantAppResponse]:
-    session = SessionLocal()
-    try:
-        rows = session.execute(
-            select(TenantApp).where(TenantApp.tenant_id == tenant_id).order_by(TenantApp.id.asc())
-        ).scalars().all()
-        return [TenantAppResponse(app_key=row.app_key, installed_at=row.installed_at.isoformat()) for row in rows]
-    finally:
-        session.close()
+    supabase = get_supabase()
+    result = rows(
+        supabase.table("tenant_apps")
+        .select("app_key, installed_at")
+        .eq("tenant_id", tenant_id.strip())
+        .order("id")
+        .execute()
+    )
+    return [TenantAppResponse(**row) for row in result]
 
 
 @app.post("/apps/install", response_model=TenantAppResponse)
@@ -242,76 +244,76 @@ def install_app(payload: TenantAppInstallRequest) -> TenantAppResponse:
     if app_key not in catalog_keys:
         raise HTTPException(status_code=404, detail="Unknown app key.")
 
-    session = SessionLocal()
-    try:
-        existing = session.execute(
-            select(TenantApp).where(TenantApp.tenant_id == tenant_id, TenantApp.app_key == app_key)
-        ).scalar_one_or_none()
-        if existing:
-            return TenantAppResponse(app_key=existing.app_key, installed_at=existing.installed_at.isoformat())
+    supabase = get_supabase()
+    existing = first_row(
+        supabase.table("tenant_apps")
+        .select("app_key, installed_at")
+        .eq("tenant_id", tenant_id)
+        .eq("app_key", app_key)
+        .limit(1)
+        .execute()
+    )
+    if existing:
+        return TenantAppResponse(**existing)
 
-        row = TenantApp(tenant_id=tenant_id, app_key=app_key)
-        session.add(row)
-        session.commit()
-        session.refresh(row)
-        return TenantAppResponse(app_key=row.app_key, installed_at=row.installed_at.isoformat())
-    finally:
-        session.close()
+    row = first_row(
+        supabase.table("tenant_apps")
+        .insert({"tenant_id": tenant_id, "app_key": app_key})
+        .execute()
+    )
+    row = require_row(row, 500, "App installation failed.")
+    return TenantAppResponse(app_key=row["app_key"], installed_at=row["installed_at"])
 
 
 @app.get("/inventory/items", response_model=list[InventoryItemResponse])
 def list_inventory_items(tenant_id: str, low_stock_only: bool = False) -> list[InventoryItemResponse]:
-    session = SessionLocal()
-    try:
-        query = select(InventoryItem).where(InventoryItem.tenant_id == tenant_id)
-        if low_stock_only:
-            query = query.where(InventoryItem.quantity_on_hand <= InventoryItem.reorder_point)
-        rows = session.execute(query.order_by(InventoryItem.name.asc())).scalars().all()
-        return [
-            InventoryItemResponse(
-                id=row.id,
-                tenant_id=row.tenant_id,
-                sku=row.sku,
-                name=row.name,
-                description=row.description,
-                quantity_on_hand=row.quantity_on_hand,
-                reorder_point=row.reorder_point,
-            )
-            for row in rows
-        ]
-    finally:
-        session.close()
+    supabase = get_supabase()
+    query = (
+        supabase.table("inventory_items")
+        .select("id, tenant_id, sku, name, description, quantity_on_hand, reorder_point")
+        .eq("tenant_id", tenant_id.strip())
+        .order("name")
+    )
+    rows_out = rows(query.execute())
+    if low_stock_only:
+        rows_out = [row for row in rows_out if row["quantity_on_hand"] <= row["reorder_point"]]
+    return [InventoryItemResponse(**row) for row in rows_out]
 
 
 @app.post("/inventory/items", response_model=InventoryItemResponse)
 def create_inventory_item(payload: InventoryItemCreateRequest) -> InventoryItemResponse:
-    session = SessionLocal()
-    try:
-        row = InventoryItem(
-            tenant_id=payload.tenant_id.strip(),
-            sku=payload.sku.strip().upper(),
-            name=payload.name.strip(),
-            description=payload.description.strip(),
-            quantity_on_hand=payload.quantity_on_hand,
-            reorder_point=payload.reorder_point,
-        )
-        session.add(row)
-        session.commit()
-        session.refresh(row)
-        return InventoryItemResponse(
-            id=row.id,
-            tenant_id=row.tenant_id,
-            sku=row.sku,
-            name=row.name,
-            description=row.description,
-            quantity_on_hand=row.quantity_on_hand,
-            reorder_point=row.reorder_point,
-        )
-    except IntegrityError:
-        session.rollback()
+    supabase = get_supabase()
+    tenant_id = payload.tenant_id.strip()
+    sku = payload.sku.strip().upper()
+
+    existing = first_row(
+        supabase.table("inventory_items")
+        .select("id")
+        .eq("tenant_id", tenant_id)
+        .eq("sku", sku)
+        .limit(1)
+        .execute()
+    )
+    if existing:
         raise HTTPException(status_code=409, detail="SKU already exists for this tenant.")
-    finally:
-        session.close()
+
+    row = first_row(
+        supabase.table("inventory_items")
+        .insert(
+            {
+                "tenant_id": tenant_id,
+                "sku": sku,
+                "name": payload.name.strip(),
+                "description": payload.description.strip(),
+                "quantity_on_hand": payload.quantity_on_hand,
+                "reorder_point": payload.reorder_point,
+                "updated_at": utc_now_iso(),
+            }
+        )
+        .execute()
+    )
+    row = require_row(row, 500, "Inventory item creation failed.")
+    return InventoryItemResponse(**row)
 
 
 @app.post("/inventory/adjust", response_model=InventoryItemResponse)
@@ -319,40 +321,40 @@ def adjust_inventory(payload: InventoryAdjustRequest) -> InventoryItemResponse:
     if payload.change_amount == 0:
         raise HTTPException(status_code=400, detail="change_amount cannot be zero.")
 
-    session = SessionLocal()
-    try:
-        row = session.execute(
-            select(InventoryItem).where(
-                InventoryItem.id == payload.item_id,
-                InventoryItem.tenant_id == payload.tenant_id.strip(),
-            )
-        ).scalar_one_or_none()
-        if not row:
-            raise HTTPException(status_code=404, detail="Inventory item not found.")
+    supabase = get_supabase()
+    tenant_id = payload.tenant_id.strip()
+    row = first_row(
+        supabase.table("inventory_items")
+        .select("id, tenant_id, sku, name, description, quantity_on_hand, reorder_point")
+        .eq("id", payload.item_id)
+        .eq("tenant_id", tenant_id)
+        .limit(1)
+        .execute()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Inventory item not found.")
 
-        next_qty = row.quantity_on_hand + payload.change_amount
-        if next_qty < 0:
-            raise HTTPException(status_code=400, detail="Adjustment would result in negative stock.")
+    next_qty = row["quantity_on_hand"] + payload.change_amount
+    if next_qty < 0:
+        raise HTTPException(status_code=400, detail="Adjustment would result in negative stock.")
 
-        row.quantity_on_hand = next_qty
-        movement = InventoryMovement(
-            item_id=row.id,
-            tenant_id=row.tenant_id,
-            change_amount=payload.change_amount,
-            reason=payload.reason.strip(),
-            performed_by=payload.performed_by.strip(),
-        )
-        session.add(movement)
-        session.commit()
-        session.refresh(row)
-        return InventoryItemResponse(
-            id=row.id,
-            tenant_id=row.tenant_id,
-            sku=row.sku,
-            name=row.name,
-            description=row.description,
-            quantity_on_hand=row.quantity_on_hand,
-            reorder_point=row.reorder_point,
-        )
-    finally:
-        session.close()
+    updated = first_row(
+        supabase.table("inventory_items")
+        .update({"quantity_on_hand": next_qty, "updated_at": utc_now_iso()})
+        .eq("id", row["id"])
+        .eq("tenant_id", tenant_id)
+        .execute()
+    )
+    require_row(updated, 500, "Inventory update failed.")
+
+    supabase.table("inventory_movements").insert(
+        {
+            "item_id": row["id"],
+            "tenant_id": tenant_id,
+            "change_amount": payload.change_amount,
+            "reason": payload.reason.strip(),
+            "performed_by": payload.performed_by.strip(),
+        }
+    ).execute()
+
+    return InventoryItemResponse(**updated)
