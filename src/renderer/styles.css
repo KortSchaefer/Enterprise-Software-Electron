@@ -317,6 +317,52 @@ button:disabled {
   background: #334155;
 }
 
+.chat-panel {
+  position: fixed;
+  width: 350px;
+  height: 500px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+  display: flex;
+  flex-direction: column;
+  z-index: 1100;
+  overflow: hidden;
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: #0f172a;
+  color: #f8fafc;
+  cursor: move;
+  user-select: none;
+}
+
+.chat-panel-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.chat-close-btn {
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: #334155;
+  color: #f8fafc;
+  border: none;
+  line-height: 1;
+}
+
+.chat-close-btn:hover {
+  background: #475569;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -337,4 +383,10 @@ button:disabled {
   .inline-period {
     grid-template-columns: 1fr;
   }
+
+  .chat-panel {
+width: min(95vw, 350px);
+height: min(75vh, 500px);
 }
+}
+

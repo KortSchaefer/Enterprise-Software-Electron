@@ -28,6 +28,7 @@ export default function LoginPage({ appName, tenantId, businessName }) {
         tenantId,
         businessName,
         userEmail: result.data.email,
+        userId: result.data.user_id,
       });
     } catch (_error) {
       setMessage("Login failed. Check backend connectivity.");

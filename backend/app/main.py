@@ -5,11 +5,27 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal, engine, Base
-from app.models import InventoryItem, InventoryMovement, TenantApp, User
+from app.models import InventoryItem, InventoryMovement, TenantApp, User, Message
 from app.security import hash_password, verify_password
 from app.timeclock import router as timeclock_router
+from app.chat import router as chat_router
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Enterprise Software Backend")
+origins = [
+    
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 HEX_256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 APP_CATALOG = [
     {
@@ -21,6 +37,11 @@ APP_CATALOG = [
         "key": "timeclock",
         "name": "Employee Timeclock",
         "description": "Manager-side attendance, scheduling, approvals, and payroll export.",
+    },
+    {
+        "key": "chat",
+        "name": "Chat",
+        "description": "One-to-one messaging between users.",
     },
 ]
 
@@ -108,6 +129,7 @@ def on_startup() -> None:
 
 
 app.include_router(timeclock_router)
+app.include_router(chat_router)
 
 
 @app.get("/health")
@@ -157,10 +179,14 @@ def create_user(payload: CreateUserRequest) -> UserResponse:
 
 
 @app.get("/users", response_model=list[UserResponse])
-def list_users() -> list[UserResponse]:
+def list_users(tenant_id: str | None = None) -> list[UserResponse]:
     session = SessionLocal()
     try:
-        users = session.execute(select(User).order_by(User.id.desc())).scalars().all()
+        query = select(User)
+        if tenant_id:
+            query = query.where(User.tenant_id == tenant_id.strip())
+
+        users = session.execute(query.order_by(User.id.desc())).scalars().all()
         return [UserResponse(id=user.id, tenant_id=user.tenant_id, email=user.email) for user in users]
     finally:
         session.close()

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ActivatePage from "./pages/ActivatePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
+import ChatApp from "./apps/ChatApp.jsx";
 
 export default function App() {
   const appName = window.electronAPI?.appName ?? "Enterprise Software Electron";
@@ -12,6 +13,7 @@ export default function App() {
   const userEmailFromQuery = searchParams.get("userEmail") || "";
   const [isLoading, setIsLoading] = useState(true);
   const [bootstrapState, setBootstrapState] = useState(null);
+  const userIdFromQuery = searchParams.get("userId") || "";
 
   if (screen === "dashboard") {
     return (
@@ -20,6 +22,18 @@ export default function App() {
         tenantId={tenantIdFromQuery}
         businessName={businessNameFromQuery}
         userEmail={userEmailFromQuery}
+        userId={Number(userIdFromQuery) || null}
+      />
+    );
+  }
+
+    if (screen === "chat") {
+    return (
+      <ChatApp
+        tenantId={tenantIdFromQuery}
+        userId={Number(userIdFromQuery) || null}
+        userEmail={userEmailFromQuery}
+        businessName={businessNameFromQuery}
       />
     );
   }

@@ -38,7 +38,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     syncAlerts: (payload) => ipcRenderer.invoke("timeclock:sync-alerts", payload),
     exportCsv: (payload) => ipcRenderer.invoke("timeclock:export-csv", payload),
   },
+    chat: {
+    listUsers: (tenantId) => ipcRenderer.invoke("chat:list-users", tenantId),
+    listMessages: (payload) => ipcRenderer.invoke("chat:list-messages", payload),
+    sendMessage: (payload) => ipcRenderer.invoke("chat:send-message", payload),
+  },
   window: {
     openDashboard: (payload) => ipcRenderer.invoke("window:open-dashboard", payload),
+    openChat: (payload) => ipcRenderer.invoke("window:open-chat", payload),
   },
+
 });

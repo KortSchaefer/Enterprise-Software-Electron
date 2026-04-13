@@ -5,6 +5,7 @@ const { registerAuthIpc } = require("./authIpc");
 const { registerAppsIpc } = require("./appsIpc");
 const { registerInventoryIpc } = require("./inventoryIpc");
 const { registerTimeclockIpc } = require("./timeclockIpc");
+const { registerChatIpc } = require("./chatIpc");
 
 function loadRendererWindow(browserWindow, screen, query = {}) {
   const rendererUrl = process.env.ELECTRON_RENDERER_URL;
@@ -65,8 +66,10 @@ function createDashboardWindow(payload = {}) {
     tenantId: payload.tenantId,
     businessName: payload.businessName,
     userEmail: payload.userEmail,
+    userId: payload.userId,
   });
 }
+
 
 app.whenReady().then(() => {
   registerBootstrapIpc();
@@ -78,6 +81,7 @@ app.whenReady().then(() => {
     createDashboardWindow(payload);
     return { ok: true };
   });
+  registerChatIpc(loadRendererWindow);
 
   createWindow();
 

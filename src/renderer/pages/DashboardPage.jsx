@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import InventoryApp from "../apps/InventoryApp.jsx";
 import TimeclockApp from "../apps/TimeclockApp.jsx";
+import ChatApp from "../apps/ChatApp.jsx";
 
 const APP_COMPONENTS = {
   inventory: InventoryApp,
   timeclock: TimeclockApp,
+  chat: ChatApp,
 };
 
-export default function DashboardPage({ appName, tenantId, businessName, userEmail }) {
+export default function DashboardPage({ appName, tenantId, businessName, userEmail, userId }) {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
   const [catalog, setCatalog] = useState([]);
@@ -16,7 +18,8 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
-
+  const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
+  
   const availableToInstall = useMemo(() => {
     const installedKeys = new Set(installedApps.map((app) => app.app_key));
     return catalog.filter((app) => !installedKeys.has(app.key));
@@ -70,6 +73,49 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
     setMessage(`Installed ${appKey}.`);
   }
 
+  function handleAppSelect(appKey) {
+    if (appKey === "chat") {
+      window.electronAPI.window.openChat({ tenantId, userId, userEmail, businessName });
+    } else {
+      setSelectedAppKey(appKey);
+    }
+  }
+
+    function getLastSeenKey(withUserId) {
+    return `chat:lastSeen:${tenantId}:${userId}:${withUserId}`;
+  }
+
+  function getLastSeenMs(withUserId) {
+    const key = getLastSeenKey(withUserId);
+    return Number(localStorage.getItem(key)) || 0;
+  }
+
+  async function loadChatUnreadTotal() {
+    try {
+      const usersRes = await fetch(`http://localhost:8000/users?tenant_id=${tenantId}`);
+      if (!usersRes.ok) return;
+      const users = await usersRes.json();
+
+      let total = 0;
+      for (const user of users) {
+        if (user.id === userId) continue;
+        const messagesRes = await fetch("http://localhost:8000/chat/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tenant_id: tenantId, with_user_id: user.id }),
+        });
+        if (!messagesRes.ok) continue;
+        const data = await messagesRes.json();
+        const lastSeenMs = getLastSeenMs(user.id);
+        const unreadCount = data.filter((msg) => msg.from_user_id === user.id && new Date(msg.created_at).getTime() > lastSeenMs).length;
+        total += unreadCount;
+      }
+      setChatUnreadTotal(total);
+    } catch (err) {
+      console.error("Error loading chat unread total:", err);
+    }
+  }
+  
   useEffect(() => {
     if (!isResizing) {
       return undefined;
@@ -93,6 +139,12 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
     };
   }, [isResizing]);
 
+    useEffect(() => {
+    const interval = setInterval(loadChatUnreadTotal, 3000);
+    loadChatUnreadTotal();
+    return () => clearInterval(interval);
+  }, [tenantId, userId]);
+
   return (
     <main className="app-shell" style={{ gridTemplateColumns: `${sidebarWidth}px 8px 1fr` }}>
       <aside className="app-nav">
@@ -111,9 +163,15 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
               <button
                 key={app.app_key}
                 className={app.app_key === selectedAppKey ? "app-tab app-tab-active" : "app-tab"}
-                onClick={() => setSelectedAppKey(app.app_key)}
+                onClick={() => handleAppSelect(app.app_key)}
+                style={app.app_key === "chat" && chatUnreadTotal > 0 ? { display: "flex", alignItems: "center", gap: "8px" } : {}}
               >
                 {app.app_key}
+                {app.app_key === "chat" && chatUnreadTotal > 0 ? (
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "18px", height: "18px", borderRadius: "50%", backgroundColor: "#ef4444", color: "white", fontSize: "12px", fontWeight: "700" }}>
+                    {chatUnreadTotal}
+                  </span>
+                ) : null}
               </button>
             ))
           )}
@@ -138,7 +196,7 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
             </p>
           </div>
         ) : null}
-        {!isLoading && selectedAppKey && ActiveApp ? <ActiveApp tenantId={tenantId} /> : null}
+        {!isLoading && selectedAppKey && ActiveApp ? <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} /> : null}
         {!isLoading && selectedAppKey && !ActiveApp ? (
           <div className="card">
             <h2>Unknown App</h2>
