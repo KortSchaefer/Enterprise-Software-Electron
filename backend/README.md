@@ -1,4 +1,4 @@
-# FastAPI Setup
+# FastAPI + Supabase Setup
 
 ## 1) Create and activate a virtual environment (Windows PowerShell)
 
@@ -14,39 +14,41 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 3) Run the API
+## 3) Configure Supabase
+
+Create `backend/.env`. The backend loads this file automatically on startup and when running `seed.py`.
+
+```powershell
+$env:SUPABASE_URL="https://your-project.supabase.co"
+$env:SUPABASE_KEY="your-anon-or-service-role-key"
+$env:SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` is recommended for the backend and seed script. If it is missing, the app falls back to `SUPABASE_KEY`, then `SUPABASE_ANON_KEY`.
+
+## 4) Create the database schema
+
+Open the Supabase SQL Editor and run:
+
+```sql
+\i supabase/schema.sql
+```
+
+If your SQL editor does not support `\i`, copy the contents of `supabase/schema.sql` directly into the editor and execute it.
+
+## 5) Run the API
 
 ```powershell
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-## 4) Test it
+## 6) Seed demo data
+
+```powershell
+python seed.py
+```
+
+## 7) Test it
 
 - Health: `http://127.0.0.1:8000/health`
 - Swagger UI: `http://127.0.0.1:8000/docs`
-
-## 5) Test tenant key validation
-
-```powershell
-$body = @{ tenant_key = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/activation/validate" -ContentType "application/json" -Body $body
-```
-
-## 6) Test users table
-
-Create user:
-
-```powershell
-$userBody = @{
-  tenant_id = "tenant-aaaaaaaaaaaa"
-  email = "admin@business.com"
-  password = "changeme123"
-} | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/users" -ContentType "application/json" -Body $userBody
-```
-
-List users:
-
-```powershell
-Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8000/users"
-```
