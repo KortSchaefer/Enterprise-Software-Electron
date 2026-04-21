@@ -92,20 +92,16 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
 
   async function loadChatUnreadTotal() {
     try {
-      const usersRes = await fetch(`http://localhost:8000/users?tenant_id=${tenantId}`);
+      const usersRes = await window.electronAPI.chat.listUsers();
       if (!usersRes.ok) return;
-      const users = await usersRes.json();
+      const users = usersRes.data;
 
       let total = 0;
       for (const user of users) {
         if (user.id === userId) continue;
-        const messagesRes = await fetch("http://localhost:8000/chat/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tenant_id: tenantId, user_id: userId, with_user_id: user.id }),
-        });
+        const messagesRes = await window.electronAPI.chat.listMessages({ withUserId: user.id });
         if (!messagesRes.ok) continue;
-        const data = await messagesRes.json();
+        const data = messagesRes.data;
         const lastSeenMs = getLastSeenMs(user.id);
         const unreadCount = data.filter((msg) => msg.from_user_id === user.id && new Date(msg.created_at).getTime() > lastSeenMs).length;
         total += unreadCount;
@@ -139,11 +135,16 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
     };
   }, [isResizing]);
 
-    useEffect(() => {
+  useEffect(() => {
     const interval = setInterval(loadChatUnreadTotal, 3000);
     loadChatUnreadTotal();
     return () => clearInterval(interval);
   }, [tenantId, userId]);
+
+  async function handleLogout() {
+    await window.electronAPI.auth.logout();
+    window.location.reload();
+  }
 
   return (
     <main className="app-shell" style={{ gridTemplateColumns: `${sidebarWidth}px 8px 1fr` }}>
@@ -153,6 +154,7 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
         <p className="subtitle">{userEmail || ""}</p>
 
         <button onClick={() => setIsAddModalOpen(true)}>Add New App</button>
+        <button className="secondary-btn" onClick={handleLogout}>Log Out</button>
 
         <div className="app-list">
           <h3>Installed Apps</h3>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from datetime import datetime, time, timedelta, timezone
 
 from app.database import first_row, get_supabase, rows
@@ -24,66 +25,48 @@ def upsert_by_keys(table: str, payload: dict, match_keys: list[str]) -> dict:
     return created
 
 
+def seed_bootstrap(tenant_id: str) -> None:
+    for app_key in ("inventory", "timeclock", "chat"):
+        upsert_by_keys("tenant_apps", {"tenant_id": tenant_id, "app_key": app_key}, ["tenant_id", "app_key"])
+    upsert_by_keys("time_policies", {"tenant_id": tenant_id}, ["tenant_id"])
+    print(f"Bootstrap seed complete for tenant '{tenant_id}'.")
+
+
 def seed_users() -> dict[str, dict]:
     definitions = [
-        ("admin", "admin@demo-tenant.local"),
-        ("alice", "alice@demo-tenant.local"),
-        ("bob", "bob@demo-tenant.local"),
+        ("admin", "admin@demo-tenant.local", "admin"),
+        ("alice", "alice@demo-tenant.local", "manager"),
+        ("bob", "bob@demo-tenant.local", "staff"),
     ]
     users: dict[str, dict] = {}
 
-    for key, email in definitions:
-        users[key] = upsert_by_keys(
+    for key, email, role in definitions:
+        user = upsert_by_keys(
             "users",
-            {
-                "tenant_id": TENANT_ID,
-                "email": email,
-                "password_hash": hash_password(USER_PASSWORD),
-            },
+            {"tenant_id": TENANT_ID, "email": email, "password_hash": hash_password(USER_PASSWORD)},
             ["tenant_id", "email"],
         )
+        upsert_by_keys(
+            "tenant_memberships",
+            {"tenant_id": TENANT_ID, "user_id": user["id"], "role": role, "is_active": 1},
+            ["tenant_id", "user_id"],
+        )
+        users[key] = user
 
     return users
 
 
-def seed_apps() -> None:
-    for app_key in ("inventory", "timeclock", "chat"):
-        upsert_by_keys("tenant_apps", {"tenant_id": TENANT_ID, "app_key": app_key}, ["tenant_id", "app_key"])
-
-
 def seed_inventory() -> None:
     definitions = [
-        {
-            "sku": "LAPTOP-15",
-            "name": "15in Laptop",
-            "description": "Primary workstation for office staff.",
-            "quantity_on_hand": 14,
-            "reorder_point": 5,
-        },
-        {
-            "sku": "DOCK-USBC",
-            "name": "USB-C Dock",
-            "description": "Docking station for desks and meeting rooms.",
-            "quantity_on_hand": 6,
-            "reorder_point": 4,
-        },
-        {
-            "sku": "BADGE-RFID",
-            "name": "RFID Access Badge",
-            "description": "Employee access badge stock.",
-            "quantity_on_hand": 42,
-            "reorder_point": 10,
-        },
+        {"sku": "LAPTOP-15", "name": "15in Laptop", "description": "Primary workstation for office staff.", "quantity_on_hand": 14, "reorder_point": 5},
+        {"sku": "DOCK-USBC", "name": "USB-C Dock", "description": "Docking station for desks and meeting rooms.", "quantity_on_hand": 6, "reorder_point": 4},
+        {"sku": "BADGE-RFID", "name": "RFID Access Badge", "description": "Employee access badge stock.", "quantity_on_hand": 42, "reorder_point": 10},
     ]
 
     for item in definitions:
         row = upsert_by_keys(
             "inventory_items",
-            {
-                "tenant_id": TENANT_ID,
-                **item,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            },
+            {"tenant_id": TENANT_ID, **item, "updated_at": datetime.now(timezone.utc).isoformat()},
             ["tenant_id", "sku"],
         )
         existing_movement = first_row(
@@ -109,20 +92,8 @@ def seed_inventory() -> None:
 
 def seed_employees() -> dict[str, dict]:
     definitions = [
-        {
-            "key": "alice",
-            "full_name": "Alice Johnson",
-            "email": "alice.johnson@demo-tenant.local",
-            "role": "manager",
-            "location": "Chicago HQ",
-        },
-        {
-            "key": "bob",
-            "full_name": "Bob Smith",
-            "email": "bob.smith@demo-tenant.local",
-            "role": "staff",
-            "location": "Chicago HQ",
-        },
+        {"key": "alice", "full_name": "Alice Johnson", "email": "alice.johnson@demo-tenant.local", "role": "manager", "location": "Chicago HQ"},
+        {"key": "bob", "full_name": "Bob Smith", "email": "bob.smith@demo-tenant.local", "role": "staff", "location": "Chicago HQ"},
     ]
     employees: dict[str, dict] = {}
 
@@ -143,28 +114,13 @@ def seed_employees() -> dict[str, dict]:
     return employees
 
 
-def seed_policy() -> None:
-    upsert_by_keys("time_policies", {"tenant_id": TENANT_ID}, ["tenant_id"])
-
-
 def seed_schedule(employees: dict[str, dict]) -> None:
     now = datetime.now(timezone.utc)
     today = now.date()
     yesterday = today - timedelta(days=1)
-
     schedule_definitions = [
-        (
-            employees["alice"],
-            datetime.combine(yesterday, time(hour=13, minute=0), tzinfo=timezone.utc),
-            datetime.combine(yesterday, time(hour=21, minute=0), tzinfo=timezone.utc),
-            "manager",
-        ),
-        (
-            employees["bob"],
-            datetime.combine(today, time(hour=14, minute=0), tzinfo=timezone.utc),
-            datetime.combine(today, time(hour=22, minute=0), tzinfo=timezone.utc),
-            "staff",
-        ),
+        (employees["alice"], datetime.combine(yesterday, time(hour=13, minute=0), tzinfo=timezone.utc), datetime.combine(yesterday, time(hour=21, minute=0), tzinfo=timezone.utc), "manager"),
+        (employees["bob"], datetime.combine(today, time(hour=14, minute=0), tzinfo=timezone.utc), datetime.combine(today, time(hour=22, minute=0), tzinfo=timezone.utc), "staff"),
     ]
 
     for employee, start_at, end_at, role in schedule_definitions:
@@ -183,26 +139,10 @@ def seed_schedule(employees: dict[str, dict]) -> None:
         )
 
     event_definitions = [
-        (
-            employees["alice"],
-            "clock_in",
-            datetime.combine(yesterday, time(hour=12, minute=56), tzinfo=timezone.utc),
-            "Arrived early",
-        ),
-        (
-            employees["alice"],
-            "clock_out",
-            datetime.combine(yesterday, time(hour=21, minute=3), tzinfo=timezone.utc),
-            "Completed shift",
-        ),
-        (
-            employees["bob"],
-            "clock_in",
-            datetime.combine(today, time(hour=14, minute=4), tzinfo=timezone.utc),
-            "Started morning shift",
-        ),
+        (employees["alice"], "clock_in", datetime.combine(yesterday, time(hour=12, minute=56), tzinfo=timezone.utc), "Arrived early"),
+        (employees["alice"], "clock_out", datetime.combine(yesterday, time(hour=21, minute=3), tzinfo=timezone.utc), "Completed shift"),
+        (employees["bob"], "clock_in", datetime.combine(today, time(hour=14, minute=4), tzinfo=timezone.utc), "Started morning shift"),
     ]
-
     for employee, event_type, occurred_at, reason in event_definitions:
         upsert_by_keys(
             "time_events",
@@ -257,46 +197,56 @@ def seed_messages(users: dict[str, dict]) -> None:
         (users["bob"]["id"], users["alice"]["id"], "Received. I am updating the reorder list now."),
         (users["admin"]["id"], users["alice"]["id"], "Please review the staffing exceptions before payroll export."),
     ]
-
     for from_user_id, to_user_id, text in definitions:
         upsert_by_keys(
             "messages",
-            {
-                "tenant_id": TENANT_ID,
-                "from_user_id": from_user_id,
-                "to_user_id": to_user_id,
-                "text": text,
-            },
+            {"tenant_id": TENANT_ID, "from_user_id": from_user_id, "to_user_id": to_user_id, "text": text},
             ["tenant_id", "from_user_id", "to_user_id", "text"],
         )
 
 
-def print_summary() -> None:
+def print_demo_summary() -> None:
     supabase = get_supabase()
     counts = {
         "users": len(rows(supabase.table("users").select("id").eq("tenant_id", TENANT_ID).execute())),
+        "memberships": len(rows(supabase.table("tenant_memberships").select("id").eq("tenant_id", TENANT_ID).execute())),
         "apps": len(rows(supabase.table("tenant_apps").select("id").eq("tenant_id", TENANT_ID).execute())),
         "inventory_items": len(rows(supabase.table("inventory_items").select("id").eq("tenant_id", TENANT_ID).execute())),
         "employees": len(rows(supabase.table("employees").select("id").eq("tenant_id", TENANT_ID).execute())),
         "messages": len(rows(supabase.table("messages").select("id").eq("tenant_id", TENANT_ID).execute())),
     }
-
-    print(f"Seed complete for tenant '{TENANT_ID}'.")
+    print(f"Demo seed complete for tenant '{TENANT_ID}'.")
     print(f"Default user password: {USER_PASSWORD}")
     for label, value in counts.items():
         print(f"{label}: {value}")
 
 
-def main() -> None:
+def seed_demo() -> None:
+    seed_bootstrap(TENANT_ID)
     users = seed_users()
-    seed_apps()
     seed_inventory()
     employees = seed_employees()
-    seed_policy()
     seed_schedule(employees)
     seed_alerts_and_approvals(employees)
     seed_messages(users)
-    print_summary()
+    print_demo_summary()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Seed Supabase data.")
+    parser.add_argument("--bootstrap-tenant", default=None, help="Create only baseline tenant records for a tenant id.")
+    parser.add_argument("--demo", action="store_true", help="Create demo data for the seeded demo tenant.")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    if args.bootstrap_tenant:
+        seed_bootstrap(args.bootstrap_tenant.strip())
+    if args.demo:
+        seed_demo()
+    if not args.bootstrap_tenant and not args.demo:
+        raise SystemExit("No seed mode selected. Use --demo or --bootstrap-tenant <tenant-id>.")
 
 
 if __name__ == "__main__":
