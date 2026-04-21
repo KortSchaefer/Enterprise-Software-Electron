@@ -2,6 +2,14 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -340,6 +348,7 @@ button:disabled {
   background: #0f172a;
   color: #f8fafc;
   cursor: move;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -390,3 +399,16 @@ height: min(75vh, 500px);
 }
 }
 
+@media (max-width: 640px) {
+  .chat-panel {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .chat-panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+  }
+}

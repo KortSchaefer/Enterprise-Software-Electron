@@ -155,12 +155,12 @@ export default function ChatApp({ tenantId, userId, userEmail }) {
       : null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", minHeight: "100dvh", overflow: "hidden" }}>
       <div style={{ padding: "8px", borderBottom: "1px solid #ddd" }}>
         <strong>Chat</strong> (you: {userEmail || `user ${userId}`}
         {otherUser ? `, chatting with ${(otherUser.email || "").split("@")[0]}` : ""})
       </div>
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+            <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
         <div
           style={{
             width: "140px",
@@ -219,7 +219,7 @@ export default function ChatApp({ tenantId, userId, userEmail }) {
           ))}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
           <div
             style={{
               flex: 1,
@@ -273,6 +273,8 @@ export default function ChatApp({ tenantId, userId, userEmail }) {
               padding: "8px",
               borderTop: "1px solid #ddd",
               gap: "8px",
+              flexShrink: 0,
+              backgroundColor: "#fff",
             }}
           >
             <input
