@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ChatApp from "./apps/ChatApp.jsx";
 import SwitchTenantPage from "./pages/SwitchTenantPage.jsx";
+import { ChatProvider } from "./chat/ChatProvider.jsx";
 
 export default function App() {
   const appName = window.electronAPI?.appName ?? "Enterprise Software Electron";
@@ -30,14 +31,16 @@ export default function App() {
     );
   }
 
-    if (screen === "chat") {
+  if (screen === "chat") {
     return (
-      <ChatApp
+      <ChatProvider
         tenantId={tenantIdFromQuery}
         userId={Number(userIdFromQuery) || null}
         userEmail={userEmailFromQuery}
-        businessName={businessNameFromQuery}
-      />
+        syncEnabled={true}
+      >
+        <ChatApp mode="popup" businessName={businessNameFromQuery} />
+      </ChatProvider>
     );
   }
 
