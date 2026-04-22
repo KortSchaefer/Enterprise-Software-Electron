@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from app.auth import SessionContext, get_session_context
 from app.database import first_row, get_supabase, rows
 
-router = APIRouter()
+router = APIRouter(tags=["chat"])
 
 
 class ChatSendRequest(BaseModel):
@@ -26,24 +26,52 @@ class ChatMessageResponse(BaseModel):
 
 class ChatListRequest(BaseModel):
     with_user_id: int
+    
+class ChatSendResponse(BaseModel):
+    success: bool
+    id: int
+    tenant_id: str
+    from_user_id: int
+    to_user_id: int
+    text: str
+    created_at: str
+    read_at: str | None
+    
+class ChatMessagesResponse(BaseModel):
+    success: bool
+    messages: list[ChatMessageResponse]
 
 
 def get_user(tenant_id: str, user_id: int) -> dict:
-    row = first_row(
-        get_supabase().table("users")
-        .select("id, tenant_id")
-        .eq("id", user_id)
+    supabase = get_supabase()
+
+    membership = first_row(
+        supabase.table("tenant_memberships")
+        .select("user_id")
         .eq("tenant_id", tenant_id)
+        .eq("user_id", user_id)
+        .eq("is_active", 1)
         .limit(1)
         .execute()
     )
-    if not row:
+    if not membership:
         raise HTTPException(status_code=404, detail="User not found.")
-    return row
+
+    user = first_row(
+        supabase.table("users")
+        .select("id")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    return user
 
 
-@router.post("/chat/send", response_model=ChatMessageResponse)
-def chat_send(payload: ChatSendRequest, context: SessionContext = Depends(get_session_context)) -> ChatMessageResponse:
+@router.post("/chat/send", response_model=ChatSendResponse)
+def chat_send(payload: ChatSendRequest, context: SessionContext = Depends(get_session_context)) -> ChatSendResponse:
     supabase = get_supabase()
     to_user = get_user(context.tenant_id, payload.to_user_id)
 
@@ -62,11 +90,11 @@ def chat_send(payload: ChatSendRequest, context: SessionContext = Depends(get_se
     if not row:
         raise HTTPException(status_code=500, detail="Message creation failed.")
 
-    return ChatMessageResponse(**row)
+    return ChatSendResponse(success=True, **row)
 
 
-@router.post("/chat/messages", response_model=list[ChatMessageResponse])
-def chat_messages(payload: ChatListRequest, context: SessionContext = Depends(get_session_context)) -> list[ChatMessageResponse]:
+@router.post("/chat/messages", response_model=ChatMessagesResponse)
+def chat_messages(payload: ChatListRequest, context: SessionContext = Depends(get_session_context)) -> ChatMessagesResponse:
     supabase = get_supabase()
     other = get_user(context.tenant_id, payload.with_user_id)
 
@@ -88,4 +116,5 @@ def chat_messages(payload: ChatListRequest, context: SessionContext = Depends(ge
     )
 
     merged = sorted([*sent, *received], key=lambda row: row["created_at"])
-    return [ChatMessageResponse(**row) for row in merged]
+    messages = [ChatMessageResponse(**row) for row in merged]
+    return ChatMessagesResponse(success=True, messages=messages)
