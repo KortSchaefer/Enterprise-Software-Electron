@@ -62,4 +62,4 @@ function registerAuthIpc() {
   });
 }
 
-module.exports = { registerAuthIpc };
+module.exports = { registerAuthIpc, loginWithBackend };

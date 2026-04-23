@@ -1,16 +1,18 @@
-const { app, BrowserWindow, Menu, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
 const path = require("path");
+const { logResolvedBackendUrl } = require("./backendClient");
 const { loadBackendEnv } = require("./loadBackendEnv");
 const { registerBootstrapIpc } = require("./bootstrapIpc");
-const { registerAuthIpc } = require("./authIpc");
+const { loginWithBackend, registerAuthIpc } = require("./authIpc");
 const { registerAppsIpc } = require("./appsIpc");
 const { registerInventoryIpc } = require("./inventoryIpc");
 const { registerTimeclockIpc } = require("./timeclockIpc");
 const { registerChatIpc } = require("./chatIpc");
 const { readBootstrapState, writeBootstrapState } = require("./bootstrapStore");
-const { clearAuthState, readAuthState } = require("./authStore");
+const { clearAuthState, readAuthState, writeAuthState } = require("./authStore");
 
 loadBackendEnv();
+logResolvedBackendUrl("startup");
 
 function canSwitchTenant() {
   return process.env.ALLOW_TENANT_SWITCH === "true" || process.env.NODE_ENV === "development";
@@ -100,6 +102,52 @@ function createTenantSwitchWindow(parentWindow) {
   });
 }
 
+async function runDemoLogin() {
+  const demoBootstrapState = {
+    tenantId: "demo-tenant",
+    businessName: "Demo Tenant",
+    apiBaseUrl: process.env.BACKEND_URL || "http://127.0.0.1:8000",
+    activatedAt: new Date().toISOString(),
+    switchedAt: new Date().toISOString(),
+  };
+
+  try {
+    await writeBootstrapState(demoBootstrapState);
+    await clearAuthState();
+
+    const result = await loginWithBackend({
+      tenant_id: "demo-tenant",
+      email: "alice@demo-tenant.local",
+      password: "Password123!",
+    });
+
+    if (!result.ok) {
+      dialog.showErrorBox("Demo Login Failed", result.error || "Could not log into the demo tenant.");
+      return;
+    }
+
+    await writeAuthState({
+      accessToken: result.data.access_token,
+      tenantId: result.data.tenant_id,
+      userId: result.data.user_id,
+      email: result.data.email,
+      role: result.data.role,
+      expiresAt: result.data.expires_at,
+    });
+
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        loadRendererWindow(window);
+      }
+    }
+  } catch (_error) {
+    dialog.showErrorBox(
+      "Demo Login Failed",
+      "Could not reach authentication service at http://127.0.0.1:8000."
+    );
+  }
+}
+
 function buildApplicationMenu() {
   const template = [
     {
@@ -124,6 +172,14 @@ function buildApplicationMenu() {
     {
       label: "Edit",
       submenu: [
+        {
+          label: "Demo Login",
+          accelerator: "CmdOrCtrl+Shift+D",
+          click: () => {
+            runDemoLogin();
+          },
+        },
+        { type: "separator" },
         { role: "undo" },
         { role: "redo" },
         { type: "separator" },

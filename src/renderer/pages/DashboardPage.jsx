@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import InventoryApp from "../apps/InventoryApp.jsx";
 import TimeclockApp from "../apps/TimeclockApp.jsx";
 import ChatApp from "../apps/ChatApp.jsx";
+import { ChatProvider, useChat } from "../chat/ChatProvider.jsx";
 
 const APP_COMPONENTS = {
   inventory: InventoryApp,
@@ -10,15 +11,37 @@ const APP_COMPONENTS = {
 };
 
 export default function DashboardPage({ appName, tenantId, businessName, userEmail, userId }) {
+  const [selectedAppKey, setSelectedAppKey] = useState("");
+
+  return (
+    <ChatProvider
+      tenantId={tenantId}
+      userId={userId}
+      userEmail={userEmail}
+      syncEnabled={selectedAppKey === "chat"}
+    >
+      <DashboardShell
+        appName={appName}
+        tenantId={tenantId}
+        businessName={businessName}
+        userEmail={userEmail}
+        userId={userId}
+        selectedAppKey={selectedAppKey}
+        setSelectedAppKey={setSelectedAppKey}
+      />
+    </ChatProvider>
+  );
+}
+
+function DashboardShell({ appName, tenantId, businessName, userEmail, userId, selectedAppKey, setSelectedAppKey }) {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
   const [catalog, setCatalog] = useState([]);
   const [installedApps, setInstalledApps] = useState([]);
-  const [selectedAppKey, setSelectedAppKey] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [chatUnreadTotal, setChatUnreadTotal] = useState(0);
+  const { unreadTotal: chatUnreadTotal } = useChat();
   
   const availableToInstall = useMemo(() => {
     const installedKeys = new Set(installedApps.map((app) => app.app_key));
@@ -74,42 +97,7 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
   }
 
   function handleAppSelect(appKey) {
-    if (appKey === "chat") {
-      window.electronAPI.window.openChat({ tenantId, userId, userEmail, businessName });
-    } else {
-      setSelectedAppKey(appKey);
-    }
-  }
-
-    function getLastSeenKey(withUserId) {
-    return `chat:lastSeen:${tenantId}:${userId}:${withUserId}`;
-  }
-
-  function getLastSeenMs(withUserId) {
-    const key = getLastSeenKey(withUserId);
-    return Number(localStorage.getItem(key)) || 0;
-  }
-
-  async function loadChatUnreadTotal() {
-    try {
-      const usersRes = await window.electronAPI.chat.listUsers();
-      if (!usersRes.ok) return;
-      const users = usersRes.data;
-
-      let total = 0;
-      for (const user of users) {
-        if (user.id === userId) continue;
-        const messagesRes = await window.electronAPI.chat.listMessages({ withUserId: user.id });
-        if (!messagesRes.ok) continue;
-        const data = messagesRes.data;
-        const lastSeenMs = getLastSeenMs(user.id);
-        const unreadCount = data.filter((msg) => msg.from_user_id === user.id && new Date(msg.created_at).getTime() > lastSeenMs).length;
-        total += unreadCount;
-      }
-      setChatUnreadTotal(total);
-    } catch (err) {
-      console.error("Error loading chat unread total:", err);
-    }
+    setSelectedAppKey(appKey);
   }
   
   useEffect(() => {
@@ -134,12 +122,6 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing]);
-
-  useEffect(() => {
-    const interval = setInterval(loadChatUnreadTotal, 3000);
-    loadChatUnreadTotal();
-    return () => clearInterval(interval);
-  }, [tenantId, userId]);
 
   async function handleLogout() {
     await window.electronAPI.auth.logout();
@@ -198,7 +180,9 @@ export default function DashboardPage({ appName, tenantId, businessName, userEma
             </p>
           </div>
         ) : null}
-        {!isLoading && selectedAppKey && ActiveApp ? <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} /> : null}
+        {!isLoading && selectedAppKey && ActiveApp ? (
+          <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} />
+        ) : null}
         {!isLoading && selectedAppKey && !ActiveApp ? (
           <div className="card">
             <h2>Unknown App</h2>
