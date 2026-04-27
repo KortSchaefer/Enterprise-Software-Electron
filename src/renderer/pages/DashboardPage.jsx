@@ -71,7 +71,8 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
     setCatalog(catalogResult.data);
     setInstalledApps(installedResult.data);
     if (installedResult.data.length > 0) {
-      setSelectedAppKey(installedResult.data[0].app_key);
+      const preferredApp = installedResult.data.find((app) => app.app_key !== "pos") || installedResult.data[0];
+      setSelectedAppKey(preferredApp.app_key);
     } else {
       setSelectedAppKey("");
     }
@@ -94,10 +95,21 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
     setSelectedAppKey(appKey);
     setIsAddModalOpen(false);
     setMessage(`Installed ${appKey}.`);
+    if (appKey === "pos") {
+      await window.electronAPI.window.openPos();
+    }
   }
 
-  function handleAppSelect(appKey) {
+  async function handleAppSelect(appKey) {
     setSelectedAppKey(appKey);
+    if (appKey === "pos") {
+      const result = await window.electronAPI.window.openPos();
+      if (!result.ok) {
+        setMessage(result.error || "Could not open POS window.");
+        return;
+      }
+      setMessage("POS opened in a separate window.");
+    }
   }
   
   useEffect(() => {
@@ -183,7 +195,14 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
         {!isLoading && selectedAppKey && ActiveApp ? (
           <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} />
         ) : null}
-        {!isLoading && selectedAppKey && !ActiveApp ? (
+        {!isLoading && selectedAppKey === "pos" ? (
+          <div className="card">
+            <h2>POS Opened</h2>
+            <p className="subtitle">The POS board runs in a dedicated popout window for faster table-service workflows.</p>
+            <button onClick={() => window.electronAPI.window.openPos()}>Focus POS Window</button>
+          </div>
+        ) : null}
+        {!isLoading && selectedAppKey && selectedAppKey !== "pos" && !ActiveApp ? (
           <div className="card">
             <h2>Unknown App</h2>
             <p className="subtitle">No renderer module mapped for: {selectedAppKey}</p>

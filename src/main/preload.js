@@ -41,6 +41,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
     syncAlerts: (payload) => ipcRenderer.invoke("timeclock:sync-alerts", payload),
     exportCsv: (payload) => ipcRenderer.invoke("timeclock:export-csv", payload),
   },
+  pos: {
+    getBoard: () => ipcRenderer.invoke("pos:get-board"),
+    createTable: (payload) => ipcRenderer.invoke("pos:create-table", payload),
+    getMenu: () => ipcRenderer.invoke("pos:get-menu"),
+    getTableDetail: (payload) => ipcRenderer.invoke("pos:get-table-detail", payload),
+    addItem: (payload) => ipcRenderer.invoke("pos:add-item", payload),
+    updateItem: (payload) => ipcRenderer.invoke("pos:update-item", payload),
+    removeItem: (payload) => ipcRenderer.invoke("pos:remove-item", payload),
+    updateStatus: (payload) => ipcRenderer.invoke("pos:update-status", payload),
+    printTicket: (payload) => ipcRenderer.invoke("pos:print-ticket", payload),
+    closeTable: (payload) => ipcRenderer.invoke("pos:close-table", payload),
+  },
   chat: {
     listConversations: () => ipcRenderer.invoke("chat:list-conversations"),
     getMessages: (payload) => ipcRenderer.invoke("chat:get-messages", payload),
@@ -51,6 +63,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   window: {
     openDashboard: (payload) => ipcRenderer.invoke("window:open-dashboard", payload),
     openChat: (payload) => ipcRenderer.invoke("window:open-chat", payload),
+    openPos: () => ipcRenderer.invoke("window:open-pos"),
     closeSelf: () => ipcRenderer.invoke("window:close-self"),
   },
 

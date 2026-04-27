@@ -6,6 +6,7 @@ const { registerBootstrapIpc } = require("./bootstrapIpc");
 const { loginWithBackend, registerAuthIpc } = require("./authIpc");
 const { registerAppsIpc } = require("./appsIpc");
 const { registerInventoryIpc } = require("./inventoryIpc");
+const { registerPosIpc } = require("./posIpc");
 const { registerTimeclockIpc } = require("./timeclockIpc");
 const { registerChatIpc } = require("./chatIpc");
 const { readBootstrapState, writeBootstrapState } = require("./bootstrapStore");
@@ -203,6 +204,7 @@ app.whenReady().then(() => {
   registerAuthIpc();
   registerAppsIpc();
   registerInventoryIpc();
+  registerPosIpc(loadRendererWindow);
   registerTimeclockIpc();
   buildApplicationMenu();
   ipcMain.handle("window:open-dashboard", async (_event, payload) => {

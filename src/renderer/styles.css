@@ -653,6 +653,687 @@ button:disabled {
   font-size: 0.88rem;
 }
 
+.pos-shell {
+  min-height: 100vh;
+  padding: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    #323232;
+  color: #f8fafc;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+}
+
+.pos-topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.pos-topbar-title {
+  text-align: center;
+}
+
+.pos-topbar-title p,
+.pos-kicker {
+  margin: 0;
+  color: #d5d9e1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pos-topbar-title h1 {
+  margin-top: 0.25rem;
+  font-size: 1.9rem;
+  color: #ffffff;
+}
+
+.pos-new-table {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pos-new-table input,
+.pos-editor-controls input,
+.pos-editor-controls select {
+  background: #eff2f7;
+  color: #0f172a;
+  border-radius: 14px;
+  border: 1px solid #afb7c6;
+}
+
+.pos-close-button {
+  min-width: 180px;
+}
+
+.pos-selector-shell {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.pos-selector-copy h2 {
+  margin: 0 0 0.4rem;
+  color: #ffffff;
+  font-size: 1.9rem;
+}
+
+.pos-order-catalog-header h2 {
+  margin: 0 0 0.4rem;
+  color: #0f172a;
+  font-size: 1.9rem;
+}
+
+.pos-order-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pos-order-topbar-left,
+.pos-order-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pos-order-identity h1 {
+  color: #ffffff;
+  font-size: 2rem;
+}
+
+.pos-order-summary-pill {
+  display: grid;
+  justify-items: end;
+  padding: 0.7rem 1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pos-order-shell {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.pos-board,
+.pos-editor,
+.pos-order-sidebar,
+.pos-order-catalog {
+  min-height: 0;
+  overflow: auto;
+}
+
+.pos-board {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding-right: 0.35rem;
+}
+
+.pos-table-row {
+  padding: 0.6rem;
+  width: 100%;
+  border-radius: 30px;
+  border: 1px solid #0f0f0f;
+  background: #3d3d3d;
+  color: #111827;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: stretch;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
+}
+
+.pos-table-row:hover,
+.pos-table-row-active {
+  background: #4a4a4a;
+}
+
+.pos-table-select {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: stretch;
+}
+
+.pos-table-select:hover {
+  background: transparent;
+}
+
+.pos-table-select-full {
+  width: 100%;
+}
+
+.pos-print-detail-button {
+  align-self: center;
+  margin: 0;
+  min-width: 74px;
+  height: 38px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: #edf2f7;
+  color: #111827;
+  border: 1px solid #aeb8c7;
+  font-size: 0.92rem;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.pos-print-detail-button:hover {
+  background: #dfe7f1;
+}
+
+.pos-table-number-card,
+.pos-table-summary-card,
+.pos-print-card,
+.pos-editor,
+.pos-order-sidebar,
+.pos-order-catalog,
+.pos-filter-chip,
+.pos-menu-item {
+  background: #eef2f7;
+  border-radius: 24px;
+  border: 1px solid #bcc5d3;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.pos-table-number-card {
+  padding: 1rem;
+  display: grid;
+  align-content: space-between;
+  min-height: 124px;
+}
+
+.pos-table-number-card strong {
+  font-size: 3rem;
+  line-height: 1;
+  color: #050505;
+}
+
+.pos-table-number-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pos-table-number-meta span {
+  color: #050505;
+  min-width: 56px;
+  text-align: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #0f172a;
+  font-weight: 700;
+  background: #f7f9fc;
+}
+
+.pos-table-summary-card {
+  padding: 1rem 1.1rem;
+  min-height: 124px;
+}
+
+.pos-table-summary-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  height: 100%;
+}
+
+.pos-summary-lines p {
+  margin: 0 0 0.28rem;
+  font-size: 1.05rem;
+  color: #101010;
+}
+
+.pos-status-stack {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  gap: 0.45rem;
+  color: #334155;
+  font-weight: 700;
+}
+
+.pos-status-dots {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pos-status-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: #d4d4d8;
+}
+
+.pos-status-open {
+  background: #ea6b68;
+}
+
+.pos-status-firing {
+  background: #f6c453;
+}
+
+.pos-status-ready {
+  background: #7ad21a;
+}
+
+.pos-status-closed,
+.pos-status-muted {
+  background: #e5e7eb;
+}
+
+.pos-status-stack span {
+  min-width: 78px;
+  text-align: center;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #64748b;
+  background: #f8fafc;
+}
+
+.pos-print-card {
+  display: grid;
+  place-items: center;
+  color: #050505;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.pos-print-card-button {
+  margin: 0;
+  padding: 1rem;
+}
+
+.pos-print-card-button:hover {
+  background: #e4ebf5;
+}
+
+.pos-row-print-subtitle {
+  margin-top: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.pos-editor,
+.pos-order-sidebar,
+.pos-order-catalog {
+  padding: 1rem;
+  color: #0f172a;
+}
+
+.pos-editor-empty {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  text-align: center;
+}
+
+.pos-editor-header,
+.pos-editor-controls,
+.pos-ticket-item,
+.pos-menu-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pos-editor-header-meta {
+  display: grid;
+  justify-items: end;
+  font-weight: 700;
+}
+
+.pos-editor-controls {
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.pos-editor-controls label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pos-ticket-items {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.pos-ticket-item {
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #d4dbe6;
+}
+
+.pos-ticket-item p {
+  margin: 0.2rem 0 0;
+  color: #475569;
+}
+
+.pos-ticket-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pos-ticket-item-actions button {
+  margin: 0;
+}
+
+.pos-menu-panel {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.pos-menu-panel-order {
+  margin-top: 0.75rem;
+}
+
+.pos-menu-category h3 {
+  margin: 0;
+}
+
+.pos-menu-grid {
+  margin-top: 0.55rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.pos-menu-grid-order {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pos-menu-item {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  color: #050505;
+  display: grid;
+  gap: 0.3rem;
+  text-align: left;
+}
+
+.pos-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 180px));
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+.pos-filter-chip {
+  margin: 0;
+  color: #050505;
+  background: #eef2f7;
+}
+
+.pos-filter-chip-active {
+  background: #dce7f4;
+}
+
+.pos-message {
+  margin: 0;
+  text-align: center;
+  color: #d9ffe2;
+}
+
+.pos-entry-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(82px, auto)) minmax(150px, 1fr) repeat(4, minmax(82px, auto));
+  gap: 0.5rem;
+  align-items: stretch;
+  padding: 0.45rem;
+  border-radius: 8px;
+  background: #2c2c2c;
+}
+
+.pos-entry-toolbar button,
+.pos-entry-footer button,
+.pos-category-button,
+.pos-entry-item-button,
+.pos-seat-tabs button,
+.pos-seat-nav button {
+  margin: 0;
+  border-radius: 8px;
+  background: #e6e9ee;
+  color: #0a0a0a;
+  border: 1px solid #a9b1bd;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+  font-weight: 800;
+}
+
+.pos-entry-toolbar button:hover,
+.pos-entry-footer button:hover,
+.pos-category-button:hover,
+.pos-entry-item-button:hover,
+.pos-seat-tabs button:hover,
+.pos-seat-nav button:hover {
+  background: #d9e0ea;
+}
+
+.pos-entry-toolbar .pos-exit-button {
+  background: #f04444;
+  color: #ffffff;
+  font-size: 2rem;
+  border-color: #c92e2e;
+}
+
+.pos-entry-screen {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px 108px minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.pos-ticket-rail {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  border-radius: 10px;
+  border: 2px solid #101010;
+  overflow: hidden;
+  background: #d9d9d9;
+  color: #050505;
+}
+
+.pos-ticket-titlebar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #4c4c4c;
+  color: #ffffff;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pos-ticket-titlebar span {
+  padding: 0.1rem 0.3rem;
+  border-right: 2px solid #d9d9d9;
+}
+
+.pos-ticket-titlebar span:last-child {
+  border-right: none;
+}
+
+.pos-seat-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.45rem 0.5rem;
+}
+
+.pos-seat-section {
+  border-bottom: 2px solid #1f2937;
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.pos-seat-section h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  text-decoration: underline;
+}
+
+.pos-seat-item {
+  width: 100%;
+  margin: 0;
+  padding: 0.18rem 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  background: transparent;
+  color: #050505;
+  border: none;
+  box-shadow: none;
+  text-align: left;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.pos-seat-item:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.pos-seat-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pos-seat-tabs,
+.pos-seat-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid #8b95a3;
+}
+
+.pos-seat-nav {
+  grid-template-columns: 1fr 1fr;
+}
+
+.pos-seat-tabs button,
+.pos-seat-nav button {
+  border-radius: 0;
+  padding: 0.32rem 0.2rem;
+  box-shadow: none;
+}
+
+.pos-category-rail {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 0.42rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: #202020;
+}
+
+.pos-category-button {
+  min-height: 46px;
+  padding: 0.4rem 0.25rem;
+  font-size: 1.25rem;
+}
+
+.pos-category-button-active {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+.pos-item-grid-panel {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.65rem;
+  border-radius: 10px;
+  background: #d9d9d9;
+  border: 2px solid #222;
+}
+
+.pos-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.55rem;
+  align-content: start;
+}
+
+.pos-entry-item-button {
+  min-height: 64px;
+  padding: 0.55rem;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.pos-entry-item-button strong,
+.pos-entry-item-button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pos-entry-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pos-entry-footer-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pos-order-utility-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 4.4rem;
+  width: min(340px, calc(100vw - 2rem));
+  display: flex;
+  align-items: end;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  border-radius: 8px;
+  background: rgba(32, 32, 32, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pos-order-utility-panel label {
+  color: #ffffff;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 70px;
+}
+
+.pos-order-utility-panel input,
+.pos-order-utility-panel select {
+  padding: 0.35rem;
+}
+
+.pos-order-utility-panel button {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -713,6 +1394,36 @@ height: min(75vh, 500px);
 
   .chat-send-button {
     width: 100%;
+  }
+
+  .pos-topbar,
+  .pos-order-topbar,
+  .pos-order-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-topbar {
+    justify-items: stretch;
+  }
+
+  .pos-order-topbar,
+  .pos-order-topbar-left,
+  .pos-order-topbar-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pos-new-table {
+    flex-wrap: wrap;
+  }
+
+  .pos-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pos-menu-grid,
+  .pos-filter-bar {
+    grid-template-columns: 1fr;
   }
 }
 
