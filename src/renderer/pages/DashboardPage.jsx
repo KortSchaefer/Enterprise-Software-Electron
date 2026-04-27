@@ -95,21 +95,10 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
     setSelectedAppKey(appKey);
     setIsAddModalOpen(false);
     setMessage(`Installed ${appKey}.`);
-    if (appKey === "pos") {
-      await window.electronAPI.window.openPos();
-    }
   }
 
-  async function handleAppSelect(appKey) {
+  function handleAppSelect(appKey) {
     setSelectedAppKey(appKey);
-    if (appKey === "pos") {
-      const result = await window.electronAPI.window.openPos();
-      if (!result.ok) {
-        setMessage(result.error || "Could not open POS window.");
-        return;
-      }
-      setMessage("POS opened in a separate window.");
-    }
   }
   
   useEffect(() => {
@@ -195,14 +184,7 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
         {!isLoading && selectedAppKey && ActiveApp ? (
           <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} />
         ) : null}
-        {!isLoading && selectedAppKey === "pos" ? (
-          <div className="card">
-            <h2>POS Opened</h2>
-            <p className="subtitle">The POS board runs in a dedicated popout window for faster table-service workflows.</p>
-            <button onClick={() => window.electronAPI.window.openPos()}>Focus POS Window</button>
-          </div>
-        ) : null}
-        {!isLoading && selectedAppKey && selectedAppKey !== "pos" && !ActiveApp ? (
+        {!isLoading && selectedAppKey && !ActiveApp ? (
           <div className="card">
             <h2>Unknown App</h2>
             <p className="subtitle">No renderer module mapped for: {selectedAppKey}</p>

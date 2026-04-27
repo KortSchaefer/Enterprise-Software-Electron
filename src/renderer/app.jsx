@@ -51,8 +51,10 @@ export default function App() {
         tenantId={tenantIdFromQuery}
         userId={Number(userIdFromQuery) || null}
         userEmail={userEmailFromQuery}
-        businessName={businessNameFromQuery}
-      />
+        syncEnabled={true}
+      >
+        <ChatApp mode="popup" businessName={businessNameFromQuery} />
+      </ChatProvider>
     );
   }
 
