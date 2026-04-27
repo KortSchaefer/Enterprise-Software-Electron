@@ -26,7 +26,7 @@ def upsert_by_keys(table: str, payload: dict, match_keys: list[str]) -> dict:
 
 
 def seed_bootstrap(tenant_id: str) -> None:
-    for app_key in ("inventory", "timeclock", "chat"):
+    for app_key in ("inventory", "timeclock", "chat", "pos"):
         upsert_by_keys("tenant_apps", {"tenant_id": tenant_id, "app_key": app_key}, ["tenant_id", "app_key"])
     upsert_by_keys("time_policies", {"tenant_id": tenant_id}, ["tenant_id"])
     print(f"Bootstrap seed complete for tenant '{tenant_id}'.")
@@ -205,6 +205,159 @@ def seed_messages(users: dict[str, dict]) -> None:
         )
 
 
+def seed_pos(users: dict[str, dict]) -> None:
+    category_definitions = [
+        ("Steaks", 10),
+        ("Drinks", 20),
+        ("Appetizers", 30),
+        ("Sides", 40),
+    ]
+    categories: dict[str, dict] = {}
+    for name, sort_order in category_definitions:
+        categories[name] = upsert_by_keys(
+            "pos_menu_categories",
+            {
+                "tenant_id": TENANT_ID,
+                "name": name,
+                "sort_order": sort_order,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            ["tenant_id", "name"],
+        )
+
+    menu_item_definitions = [
+        ("Steaks", "8 oz Sirloin", "Signature sirloin cut.", 2299, 10),
+        ("Steaks", "12 oz Ribeye", "Marbled ribeye with herb butter.", 3199, 20),
+        ("Steaks", "Roadkill", "Smothered chopped steak.", 1899, 30),
+        ("Drinks", "Water", "Still water.", 299, 10),
+        ("Drinks", "Coke", "Classic fountain soda.", 349, 20),
+        ("Drinks", "Island Cooler", "House mocktail.", 599, 30),
+        ("Appetizers", "Cactus Blossom", "Fried onion appetizer.", 899, 10),
+        ("Sides", "Cheese Fries", "Loaded cheese fries.", 699, 10),
+    ]
+    menu_items: dict[str, dict] = {}
+    for category_name, item_name, description, price_cents, sort_order in menu_item_definitions:
+        payload = {
+            "tenant_id": TENANT_ID,
+            "category_id": categories[category_name]["id"],
+            "name": item_name,
+            "description": description,
+            "price_cents": 99 if price_cents <= 0 else price_cents,
+            "is_active": 1,
+            "sort_order": sort_order,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        menu_items[item_name] = upsert_by_keys("pos_menu_items", payload, ["tenant_id", "category_id", "name"])
+
+    now = datetime.now(timezone.utc)
+    table_definitions = [
+        {
+            "table_number": "122",
+            "guest_count": 6,
+            "status": "firing",
+            "opened_at": (now - timedelta(minutes=24)).isoformat(),
+            "updated_at": (now - timedelta(minutes=1)).isoformat(),
+            "items": [
+                ("8 oz Sirloin", 1),
+                ("12 oz Ribeye", 1),
+                ("Roadkill", 1),
+                ("Water", 4),
+                ("Coke", 1),
+                ("Island Cooler", 2),
+                ("Cactus Blossom", 1),
+                ("Cheese Fries", 1),
+            ],
+            "print_minutes_ago": 5,
+        },
+        {
+            "table_number": "111",
+            "guest_count": 2,
+            "status": "ready",
+            "opened_at": (now - timedelta(minutes=42)).isoformat(),
+            "updated_at": (now - timedelta(minutes=2)).isoformat(),
+            "items": [
+                ("8 oz Sirloin", 2),
+                ("Water", 2),
+            ],
+            "print_minutes_ago": 4,
+        },
+        {
+            "table_number": "121",
+            "guest_count": 5,
+            "status": "open",
+            "opened_at": (now - timedelta(minutes=2)).isoformat(),
+            "updated_at": (now - timedelta(minutes=2)).isoformat(),
+            "items": [],
+            "print_minutes_ago": None,
+        },
+    ]
+
+    for definition in table_definitions:
+        table_row = upsert_by_keys(
+            "pos_tables",
+            {
+                "tenant_id": TENANT_ID,
+                "table_number": definition["table_number"],
+                "guest_count": definition["guest_count"],
+                "status": definition["status"],
+                "assigned_to_user_id": users["alice"]["id"],
+                "opened_at": definition["opened_at"],
+                "updated_at": definition["updated_at"],
+                "closed_at": None,
+            },
+            ["tenant_id", "table_number"],
+        )
+        subtotal_cents = 0
+        ticket_row = upsert_by_keys(
+            "pos_tickets",
+            {
+                "tenant_id": TENANT_ID,
+                "table_id": table_row["id"],
+                "status": definition["status"],
+                "subtotal_cents": 0,
+                "kitchen_note": "",
+                "printed_at": None,
+                "updated_at": definition["updated_at"],
+            },
+            ["tenant_id", "table_id"],
+        )
+        for item_name, quantity in definition["items"]:
+            menu_item = menu_items[item_name]
+            price_cents = menu_item["price_cents"]
+            line_total = price_cents * quantity
+            subtotal_cents += line_total
+            upsert_by_keys(
+                "pos_ticket_items",
+                {
+                    "tenant_id": TENANT_ID,
+                    "ticket_id": ticket_row["id"],
+                    "menu_item_id": menu_item["id"],
+                    "item_name_snapshot": item_name,
+                    "unit_price_cents": price_cents,
+                    "quantity": quantity,
+                    "line_total_cents": line_total,
+                    "updated_at": definition["updated_at"],
+                },
+                ["tenant_id", "ticket_id", "menu_item_id", "item_name_snapshot"],
+            )
+        get_supabase().table("pos_tickets").update({"subtotal_cents": subtotal_cents, "updated_at": definition["updated_at"]}).eq("id", ticket_row["id"]).execute()
+        get_supabase().table("pos_tables").update({"updated_at": definition["updated_at"]}).eq("id", table_row["id"]).execute()
+        if definition["print_minutes_ago"] is not None:
+            printed_at = (now - timedelta(minutes=definition["print_minutes_ago"])).isoformat()
+            upsert_by_keys(
+                "pos_ticket_prints",
+                {
+                    "tenant_id": TENANT_ID,
+                    "ticket_id": ticket_row["id"],
+                    "printed_by": "alice@demo-tenant.local",
+                    "printed_at": printed_at,
+                    "print_type": "guest_check",
+                },
+                ["tenant_id", "ticket_id", "printed_by", "printed_at"],
+            )
+            get_supabase().table("pos_tickets").update({"printed_at": printed_at}).eq("id", ticket_row["id"]).execute()
+
+
 def print_demo_summary() -> None:
     supabase = get_supabase()
     counts = {
@@ -214,6 +367,7 @@ def print_demo_summary() -> None:
         "inventory_items": len(rows(supabase.table("inventory_items").select("id").eq("tenant_id", TENANT_ID).execute())),
         "employees": len(rows(supabase.table("employees").select("id").eq("tenant_id", TENANT_ID).execute())),
         "messages": len(rows(supabase.table("messages").select("id").eq("tenant_id", TENANT_ID).execute())),
+        "pos_tables": len(rows(supabase.table("pos_tables").select("id").eq("tenant_id", TENANT_ID).execute())),
     }
     print(f"Demo seed complete for tenant '{TENANT_ID}'.")
     print(f"Default user password: {USER_PASSWORD}")
@@ -229,6 +383,7 @@ def seed_demo() -> None:
     seed_schedule(employees)
     seed_alerts_and_approvals(employees)
     seed_messages(users)
+    seed_pos(users)
     print_demo_summary()
 
 

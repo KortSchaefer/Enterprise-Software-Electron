@@ -3,6 +3,7 @@ import ActivatePage from "./pages/ActivatePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import ChatApp from "./apps/ChatApp.jsx";
+import PosApp from "./apps/PosApp.jsx";
 import SwitchTenantPage from "./pages/SwitchTenantPage.jsx";
 import { ChatProvider } from "./chat/ChatProvider.jsx";
 
@@ -34,6 +35,19 @@ export default function App() {
   if (screen === "chat") {
     return (
       <ChatProvider
+        tenantId={tenantIdFromQuery}
+        userId={Number(userIdFromQuery) || null}
+        userEmail={userEmailFromQuery}
+        syncEnabled={true}
+      >
+        <ChatApp mode="popup" businessName={businessNameFromQuery} />
+      </ChatProvider>
+    );
+  }
+
+  if (screen === "pos") {
+    return (
+      <PosApp
         tenantId={tenantIdFromQuery}
         userId={Number(userIdFromQuery) || null}
         userEmail={userEmailFromQuery}

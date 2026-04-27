@@ -51,6 +51,10 @@ class FakeTable:
         self._payload = payload
         return self
 
+    def delete(self):
+        self._operation = "delete"
+        return self
+
     def execute(self, bearer_token=None):
         rows = self.client.data[self.table_name]
         matched = [row for row in rows if all(row.get(column) == value for column, value in self._filters)]
@@ -68,6 +72,10 @@ class FakeTable:
                     row.update(deepcopy(self._payload))
                     updated.append(deepcopy(row))
             return FakeResult(updated)
+        if self._operation == "delete":
+            deleted = [deepcopy(row) for row in rows if all(row.get(column) == value for column, value in self._filters)]
+            self.client.data[self.table_name] = [row for row in rows if not all(row.get(column) == value for column, value in self._filters)]
+            return FakeResult(deleted)
         raise AssertionError("Unsupported table operation")
 
 
@@ -93,6 +101,7 @@ class FakeSupabase:
             ],
             "app_sessions": [],
             "tenant_apps": [],
+            "audit_logs": [],
             "inventory_items": [
                 {
                     "id": 1,
@@ -188,6 +197,7 @@ class BackendAuthAndInventoryTests(unittest.TestCase):
             patch("app.main.get_supabase", return_value=self.fake_supabase),
             patch("app.auth.get_supabase", return_value=self.fake_supabase),
             patch("app.chat.get_supabase", return_value=self.fake_supabase),
+            patch("app.pos.get_supabase", return_value=self.fake_supabase),
             patch("app.timeclock.get_supabase", return_value=self.fake_supabase),
         ]
         self._patchers = patchers

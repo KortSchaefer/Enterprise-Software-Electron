@@ -71,7 +71,8 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
     setCatalog(catalogResult.data);
     setInstalledApps(installedResult.data);
     if (installedResult.data.length > 0) {
-      setSelectedAppKey(installedResult.data[0].app_key);
+      const preferredApp = installedResult.data.find((app) => app.app_key !== "pos") || installedResult.data[0];
+      setSelectedAppKey(preferredApp.app_key);
     } else {
       setSelectedAppKey("");
     }
