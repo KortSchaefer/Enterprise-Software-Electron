@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import datetime, timezone
 
@@ -13,9 +14,12 @@ from app.database import first_row, get_supabase, require_row, rows
 from app.pos import router as pos_router
 from app.security import hash_password, verify_password
 from app.timeclock import router as timeclock_router
+from app.platform_admin import router as platform_admin_router
+
 
 app = FastAPI(title="Enterprise Software Backend")
 origins = ["http://localhost:5173"]
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +56,10 @@ APP_CATALOG = [
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def hash_activation_key(raw_key: str) -> str:
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
 class ActivationRequest(BaseModel):
@@ -135,6 +143,7 @@ class InventoryAdjustRequest(BaseModel):
 app.include_router(timeclock_router)
 app.include_router(chat_router)
 app.include_router(pos_router)
+app.include_router(platform_admin_router)
 
 
 @app.get("/health")
@@ -150,13 +159,35 @@ def validate_activation(payload: ActivationRequest) -> ActivationResponse:
     if not HEX_256_PATTERN.match(tenant_key):
         raise HTTPException(status_code=400, detail="Tenant key must be a valid 64-character hex string.")
 
-    tenant_segment = tenant_key[:12]
-    tenant_id = f"tenant-{tenant_segment}"
+    supabase = get_supabase()
+    key_hash = hash_activation_key(tenant_key)
+
+    issued_key = first_row(
+        supabase.table("tenant_activation_keys")
+        .select("tenant_id, revoked_at, used_at")
+        .eq("key_hash", key_hash)
+        .limit(1)
+        .execute()
+    )
+    if not issued_key:
+        raise HTTPException(status_code=403, detail="Activation key was not issued.")
+    if issued_key.get("revoked_at"):
+        raise HTTPException(status_code=403, detail="Activation key has been revoked.")
+
+    tenant = first_row(
+        supabase.table("tenants")
+        .select("id, name, is_active")
+        .eq("id", issued_key["tenant_id"])
+        .limit(1)
+        .execute()
+    )
+    if not tenant or tenant.get("is_active") != 1:
+        raise HTTPException(status_code=403, detail="Tenant is inactive or missing.")
 
     return ActivationResponse(
-        tenant_id=tenant_id,
-        business_name=f"Business {tenant_segment.upper()}",
-        api_base_url=f"https://api.example.com/{tenant_id}",
+        tenant_id=tenant["id"],
+        business_name=tenant.get("name") or tenant["id"],
+        api_base_url=f"https://api.example.com/{tenant['id']}",
     )
 
 

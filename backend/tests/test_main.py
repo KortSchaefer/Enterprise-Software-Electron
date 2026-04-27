@@ -1,6 +1,8 @@
 from uuid import uuid4
+import hashlib
 
 from fastapi.testclient import TestClient
+from app.database import get_supabase
 
 
 def _sku(prefix: str) -> str:
@@ -14,14 +16,43 @@ def test_health(client: TestClient):
 
 
 def test_activation_validate_ok(client: TestClient):
-    tenant_key = "a" * 64
-    response = client.post("/activation/validate", json={"tenant_key": tenant_key})
-    assert response.status_code == 200
+    tenant_key = uuid4().hex + uuid4().hex
+    tenant_id = f"tenant-act-{uuid4().hex[:8]}"
+    tenant_name = "Activation Test Tenant"
+    key_hash = hashlib.sha256(tenant_key.encode("utf-8")).hexdigest()
 
-    data = response.json()
-    assert data["tenant_id"] == "tenant-aaaaaaaaaaaa"
-    assert data["business_name"] == "Business AAAAAAAAAAAA"
-    assert data["api_base_url"] == "https://api.example.com/tenant-aaaaaaaaaaaa"
+    supabase = get_supabase()
+    try:
+        supabase.table("tenants").insert(
+            {"id": tenant_id, "name": tenant_name, "is_active": 1}
+        ).execute()
+        supabase.table("tenant_activation_keys").insert(
+            {
+                "tenant_id": tenant_id,
+                "key_hash": key_hash,
+                "key_last4": tenant_key[-4:],
+                "issued_to_email": "admin@example.com",
+                "metadata": {"source": "test"},
+            }
+        ).execute()
+
+        response = client.post("/activation/validate", json={"tenant_key": tenant_key})
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["tenant_id"] == tenant_id
+        assert data["business_name"] == tenant_name
+        assert data["api_base_url"] == f"https://api.example.com/{tenant_id}"
+    finally:
+        supabase.table("tenant_activation_keys").delete().eq("tenant_id", tenant_id).execute()
+        supabase.table("tenants").delete().eq("id", tenant_id).execute()
+
+
+def test_activation_validate_unissued_key_returns_403(client: TestClient):
+    from uuid import uuid4
+    tenant_key = uuid4().hex + uuid4().hex
+    response = client.post("/activation/validate", json={"tenant_key": tenant_key})
+    assert response.status_code == 403
 
 
 def test_activation_validate_bad_key(client: TestClient):
