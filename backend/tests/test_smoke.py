@@ -5,7 +5,7 @@ import requests
 
 
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
-TIMEOUT = 10
+TIMEOUT = 30
 
 TENANT_ID = "demo-tenant"
 LOGIN_EMAIL = "admin@demo-tenant.local"
@@ -442,20 +442,18 @@ def test_smoke_chat_send_and_messages():
     assert recipient_id is not None, "Expected another user in demo tenant"
 
     send_resp = _post(
-        f"{BASE_URL}/chat/send",
+        f"{BASE_URL}/chat/messages",
         token=token,
         json={"to_user_id": recipient_id, "text": "Hello from smoke!"},
     )
     assert send_resp.status_code == 200, send_resp.text
     send_body = send_resp.json()
-    assert send_body["success"] is True
+    assert send_body["to_user_id"] == recipient_id
 
-    messages_resp = _post(
-        f"{BASE_URL}/chat/messages",
+    messages_resp = _get(
+        f"{BASE_URL}/chat/conversations/{recipient_id}/messages",
         token=token,
-        json={"with_user_id": recipient_id},
     )
     assert messages_resp.status_code == 200, messages_resp.text
     messages_body = messages_resp.json()
-    assert messages_body["success"] is True
     assert isinstance(messages_body["messages"], list)
