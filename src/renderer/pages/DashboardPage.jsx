@@ -94,22 +94,21 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
     await loadShellData();
     setSelectedAppKey(appKey);
     setIsAddModalOpen(false);
-    setMessage(`Installed ${appKey}.`);
     if (appKey === "pos") {
-      await window.electronAPI.window.openPos();
+      const openResult = await window.electronAPI.window.openPos();
+      setMessage(openResult.ok ? "Installed pos. POS opened in a separate window." : openResult.error || "Installed pos, but POS window failed to open.");
+      return;
     }
+    setMessage(`Installed ${appKey}.`);
   }
 
   async function handleAppSelect(appKey) {
     setSelectedAppKey(appKey);
-    if (appKey === "pos") {
-      const result = await window.electronAPI.window.openPos();
-      if (!result.ok) {
-        setMessage(result.error || "Could not open POS window.");
-        return;
-      }
-      setMessage("POS opened in a separate window.");
+    if (appKey !== "pos") {
+      return;
     }
+    const result = await window.electronAPI.window.openPos();
+    setMessage(result.ok ? "POS opened in a separate window." : result.error || "POS window failed to open.");
   }
   
   useEffect(() => {
@@ -192,17 +191,17 @@ function DashboardShell({ appName, tenantId, businessName, userEmail, userId, se
             </p>
           </div>
         ) : null}
-        {!isLoading && selectedAppKey && ActiveApp ? (
-          <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} />
-        ) : null}
         {!isLoading && selectedAppKey === "pos" ? (
           <div className="card">
             <h2>POS Opened</h2>
-            <p className="subtitle">The POS board runs in a dedicated popout window for faster table-service workflows.</p>
-            <button onClick={() => window.electronAPI.window.openPos()}>Focus POS Window</button>
+            <p className="subtitle">The POS table board runs in a dedicated popout window.</p>
+            <button onClick={() => handleAppSelect("pos")}>Focus POS Window</button>
           </div>
         ) : null}
-        {!isLoading && selectedAppKey && selectedAppKey !== "pos" && !ActiveApp ? (
+        {!isLoading && selectedAppKey !== "pos" && selectedAppKey && ActiveApp ? (
+          <ActiveApp tenantId={tenantId} userId={userId} userEmail={userEmail} />
+        ) : null}
+        {!isLoading && selectedAppKey !== "pos" && selectedAppKey && !ActiveApp ? (
           <div className="card">
             <h2>Unknown App</h2>
             <p className="subtitle">No renderer module mapped for: {selectedAppKey}</p>

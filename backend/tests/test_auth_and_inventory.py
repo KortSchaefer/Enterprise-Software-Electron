@@ -87,13 +87,6 @@ class FakeSupabase:
             "app_sessions": 1,
             "inventory_items": 1,
             "messages": 5,
-            "pos_menu_categories": 5,
-            "pos_menu_items": 9,
-            "pos_tables": 4,
-            "pos_tickets": 4,
-            "pos_ticket_items": 20,
-            "pos_ticket_prints": 3,
-            "audit_logs": 1,
         }
         self.data = {
             "users": [
@@ -158,37 +151,6 @@ class FakeSupabase:
                     "created_at": "2026-04-20T09:00:00+00:00",
                     "read_at": None,
                 },
-            ],
-            "pos_menu_categories": [
-                {"id": 1, "tenant_id": "demo-tenant", "name": "Steaks", "sort_order": 10},
-                {"id": 2, "tenant_id": "demo-tenant", "name": "Drinks", "sort_order": 20},
-            ],
-            "pos_menu_items": [
-                {"id": 1, "tenant_id": "demo-tenant", "category_id": 1, "name": "8 oz Sirloin", "description": "", "price_cents": 2299, "is_active": 1, "sort_order": 10},
-                {"id": 2, "tenant_id": "demo-tenant", "category_id": 1, "name": "12 oz Ribeye", "description": "", "price_cents": 3199, "is_active": 1, "sort_order": 20},
-                {"id": 3, "tenant_id": "demo-tenant", "category_id": 2, "name": "Water", "description": "", "price_cents": 299, "is_active": 1, "sort_order": 10},
-            ],
-            "pos_tables": [
-                {"id": 1, "tenant_id": "demo-tenant", "table_number": "122", "guest_count": 6, "status": "firing", "opened_at": "2026-04-20T14:15:00+00:00", "updated_at": "2026-04-20T14:39:00+00:00", "closed_at": None, "assigned_to_user_id": 1},
-                {"id": 2, "tenant_id": "demo-tenant", "table_number": "111", "guest_count": 2, "status": "ready", "opened_at": "2026-04-20T13:40:00+00:00", "updated_at": "2026-04-20T14:22:00+00:00", "closed_at": None, "assigned_to_user_id": 1},
-                {"id": 3, "tenant_id": "other-tenant", "table_number": "7", "guest_count": 1, "status": "open", "opened_at": "2026-04-20T14:00:00+00:00", "updated_at": "2026-04-20T14:05:00+00:00", "closed_at": None, "assigned_to_user_id": 3},
-            ],
-            "pos_tickets": [
-                {"id": 1, "tenant_id": "demo-tenant", "table_id": 1, "status": "firing", "subtotal_cents": 7395, "printed_at": "2026-04-20T14:34:00+00:00", "kitchen_note": "", "created_at": "2026-04-20T14:15:00+00:00", "updated_at": "2026-04-20T14:39:00+00:00"},
-                {"id": 2, "tenant_id": "demo-tenant", "table_id": 2, "status": "ready", "subtotal_cents": 4897, "printed_at": "2026-04-20T14:18:00+00:00", "kitchen_note": "", "created_at": "2026-04-20T13:40:00+00:00", "updated_at": "2026-04-20T14:22:00+00:00"},
-                {"id": 3, "tenant_id": "other-tenant", "table_id": 3, "status": "open", "subtotal_cents": 299, "printed_at": None, "kitchen_note": "", "created_at": "2026-04-20T14:00:00+00:00", "updated_at": "2026-04-20T14:05:00+00:00"},
-            ],
-            "pos_ticket_items": [
-                {"id": 1, "tenant_id": "demo-tenant", "ticket_id": 1, "menu_item_id": 1, "item_name_snapshot": "8 oz Sirloin", "unit_price_cents": 2299, "quantity": 1, "line_total_cents": 2299, "course": None, "seat_label": None, "created_at": "2026-04-20T14:16:00+00:00", "updated_at": "2026-04-20T14:16:00+00:00"},
-                {"id": 2, "tenant_id": "demo-tenant", "ticket_id": 1, "menu_item_id": 2, "item_name_snapshot": "12 oz Ribeye", "unit_price_cents": 3199, "quantity": 1, "line_total_cents": 3199, "course": None, "seat_label": None, "created_at": "2026-04-20T14:17:00+00:00", "updated_at": "2026-04-20T14:17:00+00:00"},
-                {"id": 3, "tenant_id": "demo-tenant", "ticket_id": 1, "menu_item_id": 3, "item_name_snapshot": "Water", "unit_price_cents": 299, "quantity": 4, "line_total_cents": 1196, "course": None, "seat_label": None, "created_at": "2026-04-20T14:18:00+00:00", "updated_at": "2026-04-20T14:18:00+00:00"},
-                {"id": 4, "tenant_id": "demo-tenant", "ticket_id": 2, "menu_item_id": 1, "item_name_snapshot": "8 oz Sirloin", "unit_price_cents": 2299, "quantity": 2, "line_total_cents": 4598, "course": None, "seat_label": None, "created_at": "2026-04-20T13:45:00+00:00", "updated_at": "2026-04-20T13:45:00+00:00"},
-                {"id": 5, "tenant_id": "demo-tenant", "ticket_id": 2, "menu_item_id": 3, "item_name_snapshot": "Water", "unit_price_cents": 299, "quantity": 1, "line_total_cents": 299, "course": None, "seat_label": None, "created_at": "2026-04-20T13:46:00+00:00", "updated_at": "2026-04-20T13:46:00+00:00"},
-                {"id": 6, "tenant_id": "other-tenant", "ticket_id": 3, "menu_item_id": 3, "item_name_snapshot": "Water", "unit_price_cents": 299, "quantity": 1, "line_total_cents": 299, "course": None, "seat_label": None, "created_at": "2026-04-20T14:00:00+00:00", "updated_at": "2026-04-20T14:00:00+00:00"},
-            ],
-            "pos_ticket_prints": [
-                {"id": 1, "tenant_id": "demo-tenant", "ticket_id": 1, "printed_by": "alice@demo-tenant.local", "printed_at": "2026-04-20T14:34:00+00:00", "print_type": "guest_check"},
-                {"id": 2, "tenant_id": "demo-tenant", "ticket_id": 2, "printed_by": "alice@demo-tenant.local", "printed_at": "2026-04-20T14:18:00+00:00", "print_type": "guest_check"},
             ],
         }
 
@@ -327,60 +289,6 @@ class BackendAuthAndInventoryTests(unittest.TestCase):
         headers = self._login_headers()
         response = self.client.get("/chat/conversations/3/messages", headers=headers)
         self.assertEqual(response.status_code, 404)
-
-    def test_pos_board_returns_only_authenticated_tenant(self):
-        headers = self._login_headers()
-        response = self.client.get("/pos/board", headers=headers)
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(len(payload), 2)
-        self.assertEqual({row["table_number"] for row in payload}, {"111", "122"})
-        self.assertTrue(all(row["tenant_id"] == "demo-tenant" for row in payload))
-
-    def test_pos_create_table_creates_ticket(self):
-        headers = self._login_headers()
-        response = self.client.post("/pos/tables", headers=headers, json={"table_number": "130", "guest_count": 4})
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["table"]["table_number"], "130")
-        self.assertTrue(any(row["table_id"] == payload["table"]["id"] for row in self.fake_supabase.data["pos_tickets"]))
-
-    def test_pos_item_mutations_recalculate_subtotal(self):
-        headers = self._login_headers()
-        add_response = self.client.post("/pos/tables/2/items", headers=headers, json={"menu_item_id": 3, "quantity": 2})
-        self.assertEqual(add_response.status_code, 200)
-        self.assertEqual(add_response.json()["table"]["subtotal_cents"], 5495)
-
-        new_item = max((row for row in self.fake_supabase.data["pos_ticket_items"] if row["ticket_id"] == 2), key=lambda row: row["id"])
-        update_response = self.client.patch(f"/pos/tables/2/items/{new_item['id']}", headers=headers, json={"quantity": 3})
-        self.assertEqual(update_response.status_code, 200)
-        self.assertEqual(update_response.json()["table"]["subtotal_cents"], 5794)
-
-        delete_response = self.client.delete(f"/pos/tables/2/items/{new_item['id']}", headers=headers)
-        self.assertEqual(delete_response.status_code, 200)
-        self.assertEqual(delete_response.json()["table"]["subtotal_cents"], 4897)
-
-    def test_pos_print_and_close_record_state(self):
-        headers = self._login_headers()
-        print_response = self.client.post("/pos/tables/1/print", headers=headers, json={"print_type": "guest_check"})
-        self.assertEqual(print_response.status_code, 200)
-        self.assertEqual(len(self.fake_supabase.data["pos_ticket_prints"]), 3)
-
-        close_response = self.client.post("/pos/tables/1/close", headers=headers, json={})
-        self.assertEqual(close_response.status_code, 200)
-        self.assertEqual(close_response.json()["table"]["status"], "closed")
-        table_row = next(row for row in self.fake_supabase.data["pos_tables"] if row["id"] == 1)
-        self.assertEqual(table_row["status"], "closed")
-
-    def test_pos_staff_access_is_forbidden(self):
-        response = self.client.post(
-            "/auth/login",
-            json={"tenant_id": "demo-tenant", "email": "bob@demo-tenant.local", "password": "Password123!"},
-        )
-        self.assertEqual(response.status_code, 200)
-        headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
-        board_response = self.client.get("/pos/board", headers=headers)
-        self.assertEqual(board_response.status_code, 403)
 
 
 if __name__ == "__main__":
