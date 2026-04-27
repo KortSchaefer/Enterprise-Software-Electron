@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
-    "dev:full": "concurrently -k \"cd backend && .\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000\" \"npm run dev\"",
+    "dev:backend": "cd backend && .\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+    "dev:full": "concurrently -k \"npm:dev:backend\" \"npm run dev\"",
     "dev:renderer": "vite",
     "dev:electron": "wait-on tcp:5173 && set ELECTRON_RUN_AS_NODE=&& set ELECTRON_RENDERER_URL=http://localhost:5173&& electron .",
     "build:renderer": "vite build",

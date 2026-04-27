@@ -52,7 +52,7 @@ python seed.py --demo
 ```
 
 `--bootstrap-tenant` creates tenant apps and policy only.
-`--demo` creates the demo users, memberships, inventory, timeclock, and chat records.
+`--demo` creates the demo users, memberships, inventory, timeclock, chat, and POS records.
 
 ## 7) Run backend tests
 

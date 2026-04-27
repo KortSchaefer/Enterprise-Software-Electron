@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.auth import SessionContext, create_session, get_session_context, require_manager, revoke_session
 from app.chat import router as chat_router
 from app.database import first_row, get_supabase, require_row, rows
+from app.pos import router as pos_router
 from app.security import hash_password, verify_password
 from app.timeclock import router as timeclock_router
 
@@ -40,6 +41,11 @@ APP_CATALOG = [
         "key": "chat",
         "name": "Chat",
         "description": "One-to-one messaging between users.",
+    },
+    {
+        "key": "pos",
+        "name": "POS",
+        "description": "Table-service board for dining room tickets and printing.",
     },
 ]
 
@@ -128,6 +134,7 @@ class InventoryAdjustRequest(BaseModel):
 
 app.include_router(timeclock_router)
 app.include_router(chat_router)
+app.include_router(pos_router)
 
 
 @app.get("/health")
