@@ -73,15 +73,23 @@ class FakeTable:
 
 class FakeSupabase:
     def __init__(self):
-        self._id_counters = {"users": 3, "tenant_memberships": 3, "app_sessions": 1, "inventory_items": 1}
+        self._id_counters = {
+            "users": 4,
+            "tenant_memberships": 4,
+            "app_sessions": 1,
+            "inventory_items": 1,
+            "messages": 5,
+        }
         self.data = {
             "users": [
                 {"id": 1, "tenant_id": "demo-tenant", "email": "alice@demo-tenant.local", "password_hash": hash_password("Password123!")},
-                {"id": 2, "tenant_id": "other-tenant", "email": "mallory@other-tenant.local", "password_hash": hash_password("Password123!")},
+                {"id": 2, "tenant_id": "demo-tenant", "email": "bob@demo-tenant.local", "password_hash": hash_password("Password123!")},
+                {"id": 3, "tenant_id": "other-tenant", "email": "mallory@other-tenant.local", "password_hash": hash_password("Password123!")},
             ],
             "tenant_memberships": [
                 {"id": 1, "tenant_id": "demo-tenant", "user_id": 1, "role": "manager", "is_active": 1},
-                {"id": 2, "tenant_id": "other-tenant", "user_id": 2, "role": "staff", "is_active": 1},
+                {"id": 2, "tenant_id": "demo-tenant", "user_id": 2, "role": "staff", "is_active": 1},
+                {"id": 3, "tenant_id": "other-tenant", "user_id": 3, "role": "staff", "is_active": 1},
             ],
             "app_sessions": [],
             "tenant_apps": [],
@@ -97,6 +105,44 @@ class FakeSupabase:
                 }
             ],
             "inventory_movements": [],
+            "messages": [
+                {
+                    "id": 1,
+                    "tenant_id": "demo-tenant",
+                    "from_user_id": 2,
+                    "to_user_id": 1,
+                    "text": "Need help with the stock count?",
+                    "created_at": "2026-04-20T08:00:00+00:00",
+                    "read_at": None,
+                },
+                {
+                    "id": 2,
+                    "tenant_id": "demo-tenant",
+                    "from_user_id": 1,
+                    "to_user_id": 2,
+                    "text": "I am reviewing it now.",
+                    "created_at": "2026-04-20T08:05:00+00:00",
+                    "read_at": None,
+                },
+                {
+                    "id": 3,
+                    "tenant_id": "demo-tenant",
+                    "from_user_id": 2,
+                    "to_user_id": 1,
+                    "text": "There is one pallet left to verify.",
+                    "created_at": "2026-04-20T08:10:00+00:00",
+                    "read_at": None,
+                },
+                {
+                    "id": 4,
+                    "tenant_id": "other-tenant",
+                    "from_user_id": 3,
+                    "to_user_id": 3,
+                    "text": "Other tenant traffic",
+                    "created_at": "2026-04-20T09:00:00+00:00",
+                    "read_at": None,
+                },
+            ],
         }
 
     def next_id(self, table_name):
@@ -190,6 +236,49 @@ class BackendAuthAndInventoryTests(unittest.TestCase):
         self.assertEqual(payload["tenant_id"], "demo-tenant")
         self.assertEqual(payload["quantity_on_hand"], 8)
         self.assertEqual(len(self.fake_supabase.data["inventory_movements"]), 1)
+
+    def test_chat_conversation_summary_returns_unread_and_preview(self):
+        headers = self._login_headers()
+        response = self.client.get("/chat/conversations", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertEqual(len(payload), 1)
+        conversation = payload[0]
+        self.assertEqual(conversation["other_user_id"], 2)
+        self.assertEqual(conversation["unread_count"], 2)
+        self.assertEqual(conversation["last_message_text"], "There is one pallet left to verify.")
+        self.assertEqual(conversation["last_message_direction"], "incoming")
+
+    def test_chat_thread_paginates_and_marks_read(self):
+        headers = self._login_headers()
+        response = self.client.get("/chat/conversations/2/messages?limit=2", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.json()
+        self.assertEqual(len(payload["messages"]), 2)
+        self.assertTrue(payload["has_more"])
+        self.assertEqual(payload["messages"][0]["id"], 2)
+        self.assertEqual(payload["messages"][1]["id"], 3)
+
+        older = self.client.get(
+            f"/chat/conversations/2/messages?limit=2&before={payload['next_before']}",
+            headers=headers,
+        )
+        self.assertEqual(older.status_code, 200)
+        older_payload = older.json()
+        self.assertEqual(len(older_payload["messages"]), 1)
+        self.assertEqual(older_payload["messages"][0]["id"], 1)
+
+        read_response = self.client.post("/chat/conversations/2/read", headers=headers)
+        self.assertEqual(read_response.status_code, 200)
+        unread_after = [row for row in self.fake_supabase.data["messages"] if row["tenant_id"] == "demo-tenant" and row["to_user_id"] == 1 and row["from_user_id"] == 2]
+        self.assertTrue(all(row["read_at"] for row in unread_after))
+
+    def test_chat_tenant_isolation_for_other_user(self):
+        headers = self._login_headers()
+        response = self.client.get("/chat/conversations/3/messages", headers=headers)
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":

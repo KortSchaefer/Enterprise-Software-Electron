@@ -61,8 +61,7 @@ def _extract_bearer_token(authorization: str | None) -> str:
     return token.strip()
 
 
-def get_session_context(authorization: str | None = Header(default=None)) -> SessionContext:
-    token = _extract_bearer_token(authorization)
+def _load_session_context_for_token(token: str) -> SessionContext:
     token_hash = hash_token(token)
     now_iso = utc_now().isoformat()
     supabase = get_supabase()
@@ -107,6 +106,17 @@ def get_session_context(authorization: str | None = Header(default=None)) -> Ses
         tenant_id=membership["tenant_id"],
         role=membership["role"],
     )
+
+
+def get_session_context(authorization: str | None = Header(default=None)) -> SessionContext:
+    token = _extract_bearer_token(authorization)
+    return _load_session_context_for_token(token)
+
+
+def get_session_context_from_token(token: str) -> SessionContext:
+    if not token.strip():
+        raise HTTPException(status_code=401, detail="Missing access token.")
+    return _load_session_context_for_token(token.strip())
 
 
 def revoke_session(context: SessionContext) -> None:
