@@ -150,6 +150,31 @@ npm run build
 
 This builds the renderer with Vite.
 
+## Release
+
+Create a local Windows installer:
+
+```powershell
+.\release.ps1 -Clean
+```
+
+Create a local installer and bump the app version:
+
+```powershell
+.\release.ps1 -Version 1.0.1 -Clean
+```
+
+The installer and update metadata are written to `dist/`.
+
+GitHub Actions also builds releases from tags that start with `v`:
+
+```powershell
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+You can also run the `Build Release` workflow manually from the GitHub Actions tab.
+
 ## Tests
 
 Backend test command, if tests are present:
