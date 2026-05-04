@@ -1,6 +1,6 @@
 {
   "name": "enterprise-software-electron",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Base Electron app scaffold",
   "main": "src/main/main.js",
   "scripts": {
