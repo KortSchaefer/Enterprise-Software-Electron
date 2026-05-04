@@ -52,9 +52,7 @@ export default function App() {
         userId={Number(userIdFromQuery) || null}
         userEmail={userEmailFromQuery}
         syncEnabled={true}
-      >
-        <ChatApp mode="popup" businessName={businessNameFromQuery} />
-      </ChatProvider>
+      />
     );
   }
 
