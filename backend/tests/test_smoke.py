@@ -2,6 +2,7 @@ import os
 import uuid
 
 import requests
+import pytest
 
 
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
@@ -10,6 +11,17 @@ TIMEOUT = 30
 TENANT_ID = "demo-tenant"
 LOGIN_EMAIL = "admin@demo-tenant.local"
 LOGIN_PASSWORD = "Password123!"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def require_running_backend():
+    try:
+        response = requests.get(f"{BASE_URL}/health", timeout=3)
+    except requests.RequestException:
+        pytest.skip(f"Smoke tests require a running backend at {BASE_URL}")
+
+    if response.status_code != 200:
+        pytest.skip(f"Smoke tests require healthy backend at {BASE_URL} (got {response.status_code})")
 
 
 def _get(url, token=None, **kwargs):

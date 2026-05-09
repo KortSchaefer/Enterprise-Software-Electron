@@ -1,0 +1,170 @@
+TEST RESULTS REPORT
+
+Project: Enterprise-Software-Electron
+Date: 2026-05-09
+
+================================================================
+1) PURPOSE
+================================================================
+This document records backend test execution results for submission.
+It includes command used, environment context, totals, warning details,
+notes about skipped tests, and detailed coverage of what tests were run
+and what those tests validate.
+
+================================================================
+2) EXECUTION DETAILS
+================================================================
+Working Directory:
+C:\Users\dkthe\OneDrive\Desktop\Spring 2026\SDEV265\Enterprise-Software-Electron\backend
+
+Python Used:
+.\.venv\Scripts\python.exe
+
+Command Executed:
+python -m pytest tests -q
+
+Observed Exit Code:
+0
+
+================================================================
+3) RESULT SUMMARY
+================================================================
+Total Passed : 77
+Total Skipped: 0
+Total Failed : 0
+Total Errors : 0
+Warnings     : 2
+Total Runtime: Not captured in this report revision
+
+Raw Summary Line:
+77 passed, 2 warnings
+
+Interpretation:
+- All test files passed, including smoke/integration coverage.
+- No failing assertions or runtime test errors remained in this run.
+
+================================================================
+4) WARNING DETAILS
+================================================================
+Warning Type:
+PytestUnknownMarkWarning
+
+Warning Message:
+Unknown pytest.mark.real_auth
+
+Files Referenced in Warning:
+- tests/test_auth_and_inventory.py
+- tests/test_chat.py
+
+Impact:
+Non-blocking. Tests still completed successfully.
+
+================================================================
+5) TEST FILES EXECUTED (WHAT WAS TESTED)
+================================================================
+Total test files discovered under backend/tests:
+- tests/test_main.py
+- tests/test_timeclock.py
+- tests/test_auth_and_inventory.py
+- tests/test_chat.py
+- tests/test_smoke.py
+
+Per-file detail:
+
+A) tests/test_main.py
+	 Test count: 15
+	 Purpose:
+	 - Core API endpoint validation for health, activation, app catalog/install,
+		 and inventory create/list/adjust behavior.
+	 Key behavior validated:
+	 - /health availability
+	 - /activation/validate success and error cases
+	 - /apps/catalog and /apps/install behavior
+	 - /apps/installed tenant app listing
+	 - Inventory item create/list/low-stock filters
+	 - Duplicate SKU conflict handling (409)
+	 - Inventory adjustment success and zero-change validation (400)
+
+B) tests/test_timeclock.py
+	 Test count: 22
+	 Purpose:
+	 - Timeclock domain behavior: employees, events, live board, shifts,
+		 policy updates, summaries, approvals, alerts, and CSV export.
+	 Key behavior validated:
+	 - Employee creation, normalization, duplicate detection
+	 - Time event creation and validation errors
+	 - Live board status transitions (in/out/break)
+	 - Shift creation and date-range/list behaviors
+	 - Policy read/update with validation constraints
+	 - Timesheet summary and approval status flow
+	 - Exception/no-show detection
+	 - Alert sync/list/resolve flow
+	 - CSV export format/header behavior
+
+C) tests/test_auth_and_inventory.py
+	 Test count: 6
+	 Purpose:
+	 - Auth/session and cross-module behaviors using a patched fake Supabase
+		 test backend for deterministic unit-style checks.
+	 Key behavior validated:
+	 - Login creates session token
+	 - Protected routes require bearer token
+	 - Inventory adjust uses authenticated tenant context
+	 - Chat conversation summary/pagination/read status behavior
+	 - Tenant isolation for chat message access
+
+D) tests/test_chat.py
+	 Test count: 7
+	 Purpose:
+	 - Chat API behavior against demo tenant credentials (real-auth style tests).
+	 Key behavior validated:
+	 - Message send success path
+	 - Required field validation (recipient/text)
+	 - Invalid recipient handling
+	 - Conversation message retrieval shape and constraints
+
+E) tests/test_smoke.py
+	 Test count: 27
+	 Purpose:
+	 - End-to-end HTTP smoke coverage using requests against BASE_URL.
+	 Key behavior validated (when backend is running):
+	 - Health, activation, auth login/session/logout
+	 - User management endpoints
+	 - App catalog/install/list endpoints
+	 - Inventory create/list/adjust
+	 - Timeclock employee/event/live/shift/exceptions/approval/policy/alerts/export
+	 - Chat send and message retrieval
+
+================================================================
+6) SKIP DETAILS
+================================================================
+Skipped test group:
+- None in the latest run.
+
+Reason skipped:
+- Not applicable.
+
+Skip status meaning:
+- Smoke/integration tests executed successfully in this run.
+
+================================================================
+7) TEST RELIABILITY NOTES
+================================================================
+No failing tests were reported in this run.
+No runtime test errors were reported in this run.
+The run completed successfully with exit code 0.
+
+Coverage note:
+- Functional backend domains covered by tests include:
+	auth/session, activation, app catalog/install, inventory,
+	chat, timeclock, alerting, and CSV export.
+
+================================================================
+8) REPRODUCTION
+================================================================
+To reproduce this same report run:
+
+1. Open terminal in backend folder.
+2. Run: .\.venv\Scripts\python.exe -m pytest tests -q
+
+================================================================
